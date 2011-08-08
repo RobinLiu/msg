@@ -1,0 +1,107 @@
+K 25
+svn:wc:ra_dav:version-url
+V 31
+/svn/!svn/ver/132/trunk/c++/Log
+END
+lock_impl_posix.cc
+K 25
+svn:wc:ra_dav:version-url
+V 50
+/svn/!svn/ver/132/trunk/c++/Log/lock_impl_posix.cc
+END
+.project
+K 25
+svn:wc:ra_dav:version-url
+V 40
+/svn/!svn/ver/132/trunk/c++/Log/.project
+END
+safe_strerror_posix.cc
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/svn/!svn/ver/132/trunk/c++/Log/safe_strerror_posix.cc
+END
+.cproject
+K 25
+svn:wc:ra_dav:version-url
+V 41
+/svn/!svn/ver/132/trunk/c++/Log/.cproject
+END
+safe_strerror_posix.h
+K 25
+svn:wc:ra_dav:version-url
+V 53
+/svn/!svn/ver/132/trunk/c++/Log/safe_strerror_posix.h
+END
+vlog.cc
+K 25
+svn:wc:ra_dav:version-url
+V 39
+/svn/!svn/ver/132/trunk/c++/Log/vlog.cc
+END
+basictypes.h
+K 25
+svn:wc:ra_dav:version-url
+V 44
+/svn/!svn/ver/132/trunk/c++/Log/basictypes.h
+END
+vlog.h
+K 25
+svn:wc:ra_dav:version-url
+V 38
+/svn/!svn/ver/132/trunk/c++/Log/vlog.h
+END
+string_piece.cc
+K 25
+svn:wc:ra_dav:version-url
+V 47
+/svn/!svn/ver/132/trunk/c++/Log/string_piece.cc
+END
+lock_impl.h
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/svn/!svn/ver/132/trunk/c++/Log/lock_impl.h
+END
+string_piece.h
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/svn/!svn/ver/132/trunk/c++/Log/string_piece.h
+END
+main.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 40
+/svn/!svn/ver/132/trunk/c++/Log/main.cpp
+END
+logging_unittest.cc
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/svn/!svn/ver/132/trunk/c++/Log/logging_unittest.cc
+END
+port.h
+K 25
+svn:wc:ra_dav:version-url
+V 38
+/svn/!svn/ver/132/trunk/c++/Log/port.h
+END
+logging.cc
+K 25
+svn:wc:ra_dav:version-url
+V 42
+/svn/!svn/ver/132/trunk/c++/Log/logging.cc
+END
+logging.h
+K 25
+svn:wc:ra_dav:version-url
+V 41
+/svn/!svn/ver/132/trunk/c++/Log/logging.h
+END
+Makefile
+K 25
+svn:wc:ra_dav:version-url
+V 40
+/svn/!svn/ver/132/trunk/c++/Log/Makefile
+END
