@@ -6,30 +6,35 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
+ #include <unistd.h>
 
 #if USING_POSIX_MSG_QUEUE
 #define FILE_MODE         0664
 #define QUEUE_NAME_LEN    128
-#define MSG_QUEUE_SIZE    10
+#define MSG_QUEUE_SIZE    64
 #define MSG_SEND_TIME     200000000  //In nanoseconds
 msg_queue_id_t g_msg_queue_id = -1;
 thread_id_t g_receiver_thread_id = 0;
 
 msg_queue_id_t open_msg_queue(queue_identifier_t queue_identifier) {
+
   struct mq_attr attr;
   attr.mq_maxmsg = MSG_QUEUE_SIZE;
   attr.mq_msgsize = MSG_QUEUE_BUF_SIZE;
-  attr.mq_flags = 0;
-
+  attr.mq_flags = O_RDWR|O_CREAT;
+//  mq_unlink(queue_identifier);
+  LOG(INFO, "Before set attr.mq_msgsize %ld, attr.mq_maxmsg %ld", attr.mq_msgsize, attr.mq_maxmsg);
   mqd_t mq_id = mq_open(queue_identifier, O_RDWR|O_CREAT, FILE_MODE, &attr);
   CHECK(-1 != mq_id, "%s", strerror(errno));
   LOG(INFO, "%s opened as queue %d", queue_identifier, (int)mq_id);
-  mq_getattr(mq_id, &attr);
-  attr.mq_msgsize = MSG_QUEUE_BUF_SIZE;
-  int ret = mq_setattr(mq_id, &attr, NULL);
-  if (ret != 0) {
-    perror("mq_setattr failed");
-  }
+/*
+ *The  values  of  the  mq_maxmsg,  mq_msgsize, and mq_curmsgs members of
+ *the mq_attr structure shall be ignored by mq_setattr().
+ * */
+//  int ret = mq_setattr(mq_id, &attr, NULL);
+//  if (ret != 0) {
+//    perror("mq_setattr failed");
+//  }
   mq_getattr(mq_id, &attr);
   LOG(INFO, "attr.mq_msgsize %ld, attr.mq_maxmsg %ld", attr.mq_msgsize, attr.mq_maxmsg);
   return mq_id;
@@ -49,7 +54,6 @@ error_no_t msg_queue_send(msg_queue_id_t msg_queue_id,
   struct timespec timeout;
   timeout.tv_sec = 0;
   timeout.tv_nsec = MSG_SEND_TIME;
-  LOG(INFO, "msg_len is %d", msg_len);
 
   int ret =  mq_timedsend(msg_queue_id,
                           (const char *)msg_data,
@@ -57,9 +61,22 @@ error_no_t msg_queue_send(msg_queue_id_t msg_queue_id,
                           msg_prio,
                           &timeout);
   if(0 != ret) {
-    LOG(ERROR, "Send msg to msg_queue failed: %s", strerror(errno));
-//    perror("");
-    return SEND_MSG_TO_MSG_QUEUE_FAILED_EC;
+//    LOG(ERROR, "Send msg to msg_queue failed: %s", strerror(errno));
+    struct mq_attr attr;
+    memset(&attr, 0, sizeof(attr));
+    mq_getattr(msg_queue_id, &attr);
+    if (attr.mq_curmsgs == attr.mq_maxmsg) {
+      usleep(MSG_SEND_TIME*2/1000);
+      ret =  mq_timedsend(msg_queue_id,
+                                (const char *)msg_data,
+                                msg_len,
+                                msg_prio,
+                                &timeout);
+      if (0 != ret) {
+        return SEND_MSG_TO_MSG_QUEUE_FAILED_EC;
+      }
+    }
+//    LOG(ERROR, "attr.mq_curmsgs %ld", attr.mq_curmsgs);
   }
 
   return SUCCESS_EC;

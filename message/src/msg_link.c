@@ -19,7 +19,7 @@
 #define RETRANS_TIMEOUT 500
 
 // the ring buffer size, MUST be 2^n
-#define TX_WINDOW_MAX_SIZE (0x1 << 6)
+#define TX_WINDOW_MAX_SIZE (0x1 << 5)
 
 #define WIN_INDEX_ADD(index, offset) ((index + offset) & (TX_WINDOW_MAX_SIZE - 1))
 #define WIN_INDEX_SUB(index1, index2) ((index1 + TX_WINDOW_MAX_SIZE - index2) & (TX_WINDOW_MAX_SIZE - 1))
@@ -695,7 +695,7 @@ static void handle_data(uint8* pkt, msg_link_t* link) {
       router_receive_msg(link->rx.message);
       free_msg_buff(&link->rx.message);
       link->rx.num_of_rcvd_msg++;
-      LOG(ERROR, "Num of msg received is: %d", link->rx.num_of_rcvd_msg);
+//      LOG(ERROR, "Num of msg received is: %d", link->rx.num_of_rcvd_msg);
 //      if (NULL != link->rx.message) {
 //        free_msg_buff(&link->rx.message);
 //      }

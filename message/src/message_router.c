@@ -27,15 +27,19 @@ msg_queue_id_t get_app_queue_id(uint8 group_id, uint16 app_id) {
 }
 
 uint32 num_of_msg = 0;
+uint32 num_of_droped_msg = 0;
 
 error_no_t router_receive_msg(message_t* msg) {
-  LOG(ERROR, "Num of msg received is %d", ++num_of_msg);
+//  LOG(ERROR, "Num of msg received is %d", );
 //  LOG(INFO, "New package received from other node, route it to app");
-  print_msg_header(msg);
+//  print_msg_header(msg);
   msg_queue_id_t msg_queue_id = get_app_queue_id(msg->header->rcver.group_id,
                                                  msg->header->rcver.app_id);
 
-  send_msg_to_queue(msg_queue_id, msg);
+  if (0 != send_msg_to_queue(msg_queue_id, msg)) {
+    ++num_of_droped_msg;
+  }
+  LOG(ERROR, "received %d, droped %d", ++num_of_msg, num_of_droped_msg);
   return SUCCESS_EC;
 }
 

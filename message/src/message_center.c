@@ -25,8 +25,9 @@ void msg_main() {
                                    (void*)msg_buf,
                                     sizeof(msg_buf),
                                     &msg_priority);
-    if (ret == -1) {
+    if (ret <= 0) {
       LOG(WARNING, "Receive msg from msg queue failed");
+      continue;
     }
 //    LOG(INFO,"Receive msg from APP, length is %d", (int)ret);
     msg_header_t mh;
@@ -34,6 +35,7 @@ void msg_main() {
     memcpy(&mh, msg_buf, sizeof(mh));
 //    LOG(INFO, "mh->msg_len is %d", mh.msg_len);
     msg = allocate_msg_buff(mh.msg_len);
+    CHECK(NULL != msg);
     memcpy(msg->buf_head, msg_buf, ret);
     msg->header->msg_seq = msg_seq++;
 //    print_msg(msg);
