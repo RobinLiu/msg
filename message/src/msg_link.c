@@ -454,9 +454,7 @@ static void* tx_thread_worker(void* arg){
 void timeout_handle(void* data) {
   CHECK(NULL != data);
   msg_link_t* link = (msg_link_t*)data;
-  if (link->retrans_timer.state == 1) {
-    return;
-  }
+
   LOG(INFO, "Timeout for msg ack, retrans it.");
   lock(&link->tx.tx_lock);
   LOG(INFO, "Locked");

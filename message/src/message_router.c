@@ -68,7 +68,8 @@ error_no_t send_msg_to_msg_router(message_t* msg) {
   uint8  node_num = 0;
   node_num = get_app_location(msg->header->rcver, node_list);
   CHECK(node_num <= 2);
-
+  //TODO: Check the destination state, if the destination is not reachable,
+  //ignore the message.
 
   error_no_t ret1, ret2;
   switch(node_num) {
