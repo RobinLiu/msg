@@ -13,11 +13,13 @@
 /******************************************************************************
  * MACRO definitions
  *****************************************************************************/
+#define USING_UDP_FOR_MESSAGE 1
+
 /* Timer values. Unit is ms */
-#define RETRANS_TIMEOUT 1000
+#define RETRANS_TIMEOUT 500
 
 // the ring buffer size, MUST be 2^n
-#define TX_WINDOW_MAX_SIZE (0x1 << 5)
+#define TX_WINDOW_MAX_SIZE (0x1 << 6)
 
 #define WIN_INDEX_ADD(index, offset) ((index + offset) & (TX_WINDOW_MAX_SIZE - 1))
 #define WIN_INDEX_SUB(index1, index2) ((index1 + TX_WINDOW_MAX_SIZE - index2) & (TX_WINDOW_MAX_SIZE - 1))

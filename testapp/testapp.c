@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
   message_t* msg = NULL;
 //  while(num_of_msg--) {
   while(1) {
-    uint32 msglen = 2048;
+    uint32 msglen = 2000;
     msg = allocate_msg_buff(msglen);
     fill_msg_header(group_id, app_id, RANGE_ACTIVE, 4, msg);
 //    msg->header->msg_len = msglen;

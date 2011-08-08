@@ -4,7 +4,7 @@
 #include "common/include/common.h"
 
 #if USING_POSIX_MSG_QUEUE
-#define MSG_QUEUE_BUF_SIZE      8192
+#define MSG_QUEUE_BUF_SIZE      2048
 #define __USE_XOPEN2K  //MACRO for mq_timedsend
 #include <mqueue.h>
 typedef mqd_t                 msg_queue_id_t;
