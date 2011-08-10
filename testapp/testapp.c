@@ -3,6 +3,7 @@
 #include "common/include/common.h"
 #include "message/mock_API/app_info.h"
 #include <unistd.h>
+#include <string.h>
 
 extern uint16 dst_group_id;
 uint32 recvd_msg_num = 0;
@@ -22,15 +23,75 @@ int main(int argc, char** argv) {
   uint32 num_of_msg = (uint32)atoi(argv[3]);
   uint32 num_of_send_msg = 0;
   uint32 num_of_droped_msg = 0;
-  init_msg_center();
+  init_sys_info();
   init_msg_queue(&on_msg_received);
   message_t* msg = NULL;
+  /*char key = 0;
+  node_status_t node_status;
+  uint32 msglen = 2000;
+
+  while(-1 != (key = getchar())) {
+    switch(key) {
+    case 'q':
+      return -1;
+    case 'd':
+      msg = allocate_msg_buff(sizeof(node_status_t));
+      fill_msg_header(group_id, app_id, RANGE_ACTIVE, 4, msg);
+      msg->header->msg_id = MSG_ID_NODE_STATUS;
+      node_status.node_id = num_of_msg;
+      node_status.node_status = 1;
+      memcpy((void*)msg->body, (void*)&node_status, sizeof(node_status));
+      if (0 != send_msg(msg)) {
+        num_of_droped_msg++;
+      } else {
+        num_of_send_msg++;
+      }
+      free_msg_buff(&msg);
+      LOG(INFO, "one message is send");
+      break;
+    case 'u':
+      msg = allocate_msg_buff(sizeof(node_status_t));
+      fill_msg_header(group_id, app_id, RANGE_ACTIVE, 4, msg);
+//      node_status_t node_status;
+      msg->header->msg_id = MSG_ID_NODE_STATUS;
+      node_status.node_id = num_of_msg;
+      node_status.node_status = 2;
+      memcpy((void*)msg->body, (void*)&node_status, sizeof(node_status));
+      if (0 != send_msg(msg)) {
+        num_of_droped_msg++;
+      } else {
+        num_of_send_msg++;
+      }
+      free_msg_buff(&msg);
+      break;
+    case 'o':
+      msg = allocate_msg_buff(msglen);
+      fill_msg_header(group_id, app_id, RANGE_ACTIVE, 4, msg);
+      uint8* buf = msg->body;
+      uint32 i = 0;
+      for(i = 0; i < msglen; ++i) {
+        *buf++ = (uint8)('a' + (i%26));
+      }
+      if (0 != send_msg(msg)) {
+        num_of_droped_msg++;
+      } else {
+        num_of_send_msg++;
+      }
+      free_msg_buff(&msg);
+      break;
+    default:
+      break;
+    }
+  }
+*/
+
+
   while(num_of_msg--) {
 //  while(1) {
     uint32 msglen = 2000;
     msg = allocate_msg_buff(msglen);
-    fill_msg_header(group_id, app_id, RANGE_ACTIVE, 4, msg);
 //    msg->header->msg_len = msglen;
+    fill_msg_header(group_id, app_id, RANGE_ACTIVE, 4, msg);
 //    msg->header->msg_seq = msg_seq++;
     uint8* buf = msg->body;
     uint32 i = 0;

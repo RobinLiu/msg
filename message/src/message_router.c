@@ -21,7 +21,7 @@ msg_queue_id_t get_app_queue_id(uint8 group_id, uint16 app_id) {
   uint32 index = (group_id % MAX_GROUP_NUM_IN_NODE) * MAX_APP_NUM_IN_GROUP + app_id;
   CHECK(index < MAX_GROUP_NUM_IN_NODE * MAX_APP_NUM_IN_GROUP);
   if (0 >= g_app_queue_id[index]) {
-    g_app_queue_id[index] = get_msg_queue_id(group_id, app_id);
+    g_app_queue_id[index] = get_client_msg_queue_id(group_id, app_id);
   }
   return g_app_queue_id[index];
 }
@@ -29,14 +29,35 @@ msg_queue_id_t get_app_queue_id(uint8 group_id, uint16 app_id) {
 uint32 num_of_msg = 0;
 uint32 num_of_droped_msg = 0;
 
+
+void process_msg(message_t* msg) {
+  CHECK(NULL != msg);
+  node_status_t* node_status;
+  switch(msg->header->msg_id) {
+  case MSG_ID_NODE_STATUS:
+    node_status = (node_status_t*)msg->body;
+    node_state_changed(node_status->node_id, node_status->node_status);
+    break;
+  default:
+    break;
+  }
+}
+
 error_no_t router_receive_msg(message_t* msg) {
 //  LOG(ERROR, "Num of msg received is %d", );
 //  LOG(INFO, "New package received from other node, route it to app");
 //  print_msg_header(msg);
+  if(msg->header->rcver.group_id == get_self_group_id()
+     && msg->header->rcver.app_id == get_self_app_id()) {
+      //this is a message to myself.
+    LOG(INFO, "Control message for router is received...");
+     process_msg(msg);
+     return SUCCESS_EC;
+  }
   msg_queue_id_t msg_queue_id = get_app_queue_id(msg->header->rcver.group_id,
                                                  msg->header->rcver.app_id);
 
-  if (0 != send_msg_to_queue(msg_queue_id, msg)) {
+  if (0 != send_msg_to_queue(msg_queue_id, msg, 0)) {
     ++num_of_droped_msg;
   }
   LOG(ERROR, "received %d, droped %d", ++num_of_msg, num_of_droped_msg);

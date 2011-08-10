@@ -1,10 +1,13 @@
+#include "timer.h"
+#include "common/include/logging.h"
+#include "lock.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <sys/poll.h>
 #include <string.h>
 #include <pthread.h>
- #include <unistd.h>
+#include <unistd.h>
 
 /** Maximum value for signed 32-bit integer. */
 #define MAXINT32  0x7FFFFFFFL
@@ -39,40 +42,21 @@
           time_val_normalize(&(t1)); \
             } while (0)
 
-
-typedef struct time_val {
-  long sec;
-  long msec; /*milliseconds*/
-} time_val;
-
-typedef struct timer_heap_t timer_heap_t;
-typedef struct timer_entry  timer_entry;
-
-typedef void timer_heap_callback(timer_heap_t* timer_heap, timer_entry* entry);
-
-typedef void (*TIMEOUT_FUNC)(void *);
-
-struct timer_entry {
-  void* user_data;
-  TIMEOUT_FUNC cb;
-  int timer_id;
-  time_val timer_value;
-  time_val delay;
-};
-
-struct timer_heap_t {
+typedef struct timer_heap_t {
   int max_size;
   int cur_size;
-  pthread_mutex_t timer_lock;
+  lock_t timer_lock;
   timer_entry **heap;
   int *timer_ids;
   int timer_ids_freelist;
   int fd[2];
-//  TIMEOUT_FUNC* callback;
-};
+} timer_heap_t;
+
+//timer_heap_t* ht = NULL;
+timer_heap_t* g_timer_heap = NULL;
 
 void time_val_normalize(time_val *t) {
-
+  CHECK(NULL != t);
   if (t->msec >= 1000) {
     t->sec += (t->msec / 1000);
     t->msec = (t->msec % 1000);
@@ -94,9 +78,7 @@ void time_val_normalize(time_val *t) {
 }
 
 void gettickcount(time_val* expires) {
-  if(NULL == expires) {
-    return;
-  }
+  CHECK(NULL != expires);
   struct timeval tv;
   int ret = gettimeofday(&tv, NULL);
   if(0 == ret) {
@@ -108,19 +90,21 @@ void gettickcount(time_val* expires) {
 }
 
 void lock_timer_heap(timer_heap_t* ht) {
-  pthread_mutex_lock(&ht->timer_lock);
+  lock(&ht->timer_lock);
 }
 
 void unlock_timer_heap(timer_heap_t* ht) {
-  pthread_mutex_unlock(&ht->timer_lock);
+  unlock(&ht->timer_lock);
 }
 
 static void copy_node(timer_heap_t* ht, int slot, timer_entry* moved_node) {
+  CHECK(NULL != ht && NULL != moved_node);
   ht->heap[slot] = moved_node;
   ht->timer_ids[moved_node->timer_id] = slot;
 }
 
 static int pop_freelist(timer_heap_t* ht) {
+  CHECK(NULL != ht);
   int new_timer_id = ht->timer_ids_freelist;
   ht->timer_ids_freelist = -ht->timer_ids[ht->timer_ids_freelist];
 
@@ -128,12 +112,14 @@ static int pop_freelist(timer_heap_t* ht) {
 }
 
 static void push_freelist(timer_heap_t* ht, int old_timer_id) {
+  CHECK(NULL != ht);
   ht->timer_ids[old_timer_id] = -ht->timer_ids_freelist;
   ht->timer_ids_freelist = old_timer_id;
 }
 
 static void reheap_down(timer_heap_t* ht, timer_entry* moved_node,
                         int slot, int child) {
+  CHECK(NULL != ht && NULL != moved_node);
   while(child < ht->cur_size) {
     if (child + 1 < ht->cur_size &&
         TIME_VAL_LT(ht->heap[child + 1]->timer_value,
@@ -155,6 +141,7 @@ static void reheap_down(timer_heap_t* ht, timer_entry* moved_node,
 
 static void reheap_up(timer_heap_t* ht, timer_entry* moved_node,
                       int slot, int parent) {
+  CHECK(NULL != ht && NULL != moved_node);
   while (slot > 0) {
     if (TIME_VAL_LT(moved_node->timer_value, ht->heap[parent]->timer_value)) {
       copy_node(ht, slot, ht->heap[parent]);
@@ -169,8 +156,8 @@ static void reheap_up(timer_heap_t* ht, timer_entry* moved_node,
 }
 
 static timer_entry* remove_node(timer_heap_t* ht, int slot) {
+  CHECK(NULL != ht);
   timer_entry* removed_node = ht->heap[slot];
-
   push_freelist(ht, removed_node->timer_id);
 
   ht->cur_size--;
@@ -193,25 +180,24 @@ static timer_entry* remove_node(timer_heap_t* ht, int slot) {
 }
 
 static void grow_heap(timer_heap_t* ht) {
+  CHECK(NULL != ht);
   int new_size = ht->max_size * 2;
-  int* new_timer_ids;
-  int i;
+  int* new_timer_ids = NULL;
+  int i = 0;
 
   //first grow the heap.
-
   timer_entry** new_heap = 0;
   new_heap = (timer_entry**) malloc(sizeof(timer_entry*) * new_size);
+  CHECK(NULL != new_heap);
   memcpy(new_heap, ht->heap, ht->max_size * sizeof(timer_entry*));
-  //free ht->heap;
-
+  free(ht->heap);
   ht->heap = new_heap;
 
   //grow the array of timer ids;
-  new_timer_ids = 0;
   new_timer_ids = malloc(new_size * sizeof(int));
+  CHECK(NULL != new_timer_ids);
   memcpy(new_timer_ids, ht->timer_ids, ht->max_size * sizeof(int));
-
-  //free the time_ids
+  free(ht->timer_ids);
 
   ht->timer_ids = new_timer_ids;
 
@@ -222,6 +208,7 @@ static void grow_heap(timer_heap_t* ht) {
 }
 
 static void insert_node(timer_heap_t* ht, timer_entry* new_node) {
+  CHECK(NULL != ht && NULL != new_node);
   if (ht->cur_size + 2 >= ht->max_size) {
     grow_heap(ht);
   }
@@ -231,6 +218,7 @@ static void insert_node(timer_heap_t* ht, timer_entry* new_node) {
 
 static int schedule_entry(timer_heap_t* ht, timer_entry* entry,
                           time_val* future_time) {
+  CHECK(NULL != ht && NULL != entry && NULL != future_time);
   if (ht->cur_size < ht->max_size) {
     entry->timer_id = pop_freelist(ht);
     entry->timer_value = *future_time;
@@ -242,8 +230,8 @@ static int schedule_entry(timer_heap_t* ht, timer_entry* entry,
 }
 
 static void cancel(timer_heap_t* ht, timer_entry* entry) {
+  CHECK(NULL != ht && NULL != entry);
   long timer_node_slot;
-
   if (entry->timer_id < 0 || entry->timer_id > ht->max_size) {
     return;
   }
@@ -261,16 +249,14 @@ static void cancel(timer_heap_t* ht, timer_entry* entry) {
 }
 
 int timer_heap_create(int size, timer_heap_t** p_heap) {
+  CHECK(NULL != p_heap);
   timer_heap_t* ht;
   int i;
   *p_heap = NULL;
   //size += 2;
 
   ht = malloc(sizeof(timer_heap_t));
-  if (NULL == ht) {
-    //alloc mem error;
-    return -1;
-  }
+  CHECK(NULL != ht);
   ht->max_size = size;
   ht->cur_size = 0;
   ht->timer_ids_freelist = 1;
@@ -285,17 +271,19 @@ int timer_heap_create(int size, timer_heap_t** p_heap) {
 
   //alloc memeory
   ht->heap = malloc(sizeof(timer_entry*) * size);
-  if(NULL == ht->heap) {
-    free(ht);
-    return -1;
-  }
+  CHECK(NULL != ht->heap);
+//  if(NULL == ht->heap) {
+//    free(ht);
+//    return -1;
+//  }
   ht->timer_ids = malloc(sizeof(int) * size);
-  if(NULL == ht->timer_ids) {
-    free(ht->heap);
-    ht->heap = NULL;
-    free(ht);
-    return -1;
-  }
+  CHECK(NULL != ht->timer_ids);
+//  if(NULL == ht->timer_ids) {
+//    free(ht->heap);
+//    ht->heap = NULL;
+//    free(ht);
+//    return -1;
+//  }
 
   for (i = 0; i < size; ++i) {
     ht->timer_ids[i] = -(i + 1);
@@ -308,11 +296,19 @@ int timer_heap_create(int size, timer_heap_t** p_heap) {
 void timer_heap_destroy(timer_heap_t** ht) {
   //TODO:validation
   timer_heap_t* tmp = *ht;
-  free(tmp->timer_ids);
-  tmp->timer_ids = NULL;
+  if (NULL == tmp) {
+    return;
+  }
 
-  free(tmp->heap);
-  tmp->heap = NULL;
+  if (NULL != tmp->timer_ids) {
+    free(tmp->timer_ids);
+    tmp->timer_ids = NULL;
+  }
+
+  if (NULL != tmp->heap) {
+    free(tmp->heap);
+    tmp->heap = NULL;
+  }
 
   free(tmp);
   tmp = NULL;
@@ -320,9 +316,7 @@ void timer_heap_destroy(timer_heap_t** ht) {
 
 void timer_entry_init(timer_entry* entry, void* user_data, TIMEOUT_FUNC cb,
                       unsigned int timeout) {
-  if(NULL == entry || cb == NULL) {
-    return;
-  }
+  CHECK(NULL != entry && cb != NULL);
   entry->timer_id = -1;
   entry->user_data = user_data;
   entry->cb = cb;
@@ -332,6 +326,7 @@ void timer_entry_init(timer_entry* entry, void* user_data, TIMEOUT_FUNC cb,
 }
 
 int timer_heap_schedule(timer_heap_t* ht, timer_entry* entry, time_val* delay) {
+  CHECK(NULL != ht && NULL != entry);
   int status;
   time_val expires;
   if(!(ht && entry && delay)) {
@@ -348,12 +343,15 @@ int timer_heap_schedule(timer_heap_t* ht, timer_entry* entry, time_val* delay) {
   gettickcount(&expires);
   TIME_VAL_ADD(expires, *delay);
 
-  int old_size = 0;
   lock_timer_heap(ht);
-  old_size = ht->cur_size;
+  int was_empty = ht->cur_size == 0;
+  int is_timer_less = (ht->cur_size > 0
+      && TIME_VAL_LT(entry->timer_value, ht->heap[0]->timer_value));
   status = schedule_entry(ht, entry, &expires);
-  if (old_size == 0) {
-    write(ht->fd[1], "0", 1);
+  //notify the thread to update the polling timer;
+  if (was_empty || is_timer_less) {
+    LOG(INFO, "Notify thread that a new timer is added ...");
+    CHECK(1 == write(ht->fd[1], "0", 1));
   }
   unlock_timer_heap(ht);
 
@@ -377,9 +375,8 @@ unsigned timer_heap_poll(timer_heap_t* ht, time_val* next_delay) {
   time_val now;
   unsigned count = 0;
 
-  if(NULL == ht) {
-    return 0;
-  }
+  CHECK(NULL != ht);
+
   if (!ht->cur_size && next_delay) {
     next_delay->sec = next_delay->msec = MAXINT32;
     return 0;
@@ -392,7 +389,7 @@ unsigned timer_heap_poll(timer_heap_t* ht, time_val* next_delay) {
     count++;
     unlock_timer_heap(ht);
     if (node->cb) {
-//      (*node->cb)(ht, node);
+      LOG(INFO, "Timed out, call the callback ...");
       (*node->cb)(node->user_data);
     }
     lock_timer_heap(ht);
@@ -411,26 +408,21 @@ unsigned timer_heap_poll(timer_heap_t* ht, time_val* next_delay) {
 
 
 int timer_heap_earliest_time(timer_heap_t* ht, time_val* timeval) {
-  if (ht->cur_size == 0) {
+  CHECK(NULL != ht && NULL != timeval);
+  lock_timer_heap(ht);
+  if (0 == ht->cur_size) {
+    unlock_timer_heap(ht);
     return -1;
   }
-  lock_timer_heap(ht);
   *timeval = ht->heap[0]->timer_value;
   unlock_timer_heap(ht);
 
   return 0;
 }
 
-void timeout_callback(void* data) {
-  if(NULL == data) {
-    printf("NULL pointer passed\n");
-    return;
-  }
-  printf("my data is %d\n", *(int*)(data));
-}
-
 
 int cal_timeout_time(timer_heap_t* ht) {
+  CHECK(NULL != ht);
   int timeout;
   time_val now;
   time_val delay;
@@ -467,55 +459,80 @@ void* timer_thread(void* data) {
 
   while(1) {
     timeout = cal_timeout_time(ht);
-    printf("timeout is %d\n", timeout);
+//    printf("timeout is %d\n", timeout);
     ret = poll(&pfd, 1, timeout);
     if (0 == ret) {
-      printf("timeout...\n");
+//      printf("timeout...\n");
       timer_heap_poll(ht, NULL);
     } else if (1 ==ret) {
-      printf("A timer scheduled\n");
-      read(ht->fd[0], flag, 1);
+//      printf("A timer scheduled\n");
+      CHECK(1 == read(ht->fd[0], flag, 1));
       timer_heap_poll(ht, NULL);
     } else {
-      perror("poll error");
+//      perror("poll error");
+      LOG(ERROR, "%s", strerror(errno));
     }
   }
 }
-
-typedef timer_entry msg_timer_t;
-timer_heap_t* ht = NULL;
-
 
 void init_timer(msg_timer_t* timer,
                  TIMEOUT_FUNC cb,
                  void* data,
                  unsigned int timeout_time) {
+//  printf("addr of cb is %p\n", cb);
   timer_entry_init(timer, data, cb, timeout_time);
 }
+
+
 void stop_timer(msg_timer_t* timer) {
-  timer_heap_cancel(ht, timer);
+  timer_heap_cancel(g_timer_heap, timer);
 }
 
 int start_timer(msg_timer_t* timer) {
-  timer_heap_cancel(ht, timer);
-  if(0 != timer_heap_schedule(ht, timer, &timer->delay)) {
-    printf("add timer failed\n");
-    return -1;
+  timer_heap_cancel(g_timer_heap, timer);
+  int ret = timer_heap_schedule(g_timer_heap, timer, &timer->delay);
+  if(0 != ret) {
+    LOG(ERROR, "add timer failed\n");
   }
+  return ret;
 }
+
+int renew_timer(msg_timer_t* timer, uint32 timeout_time) {
+  timer->delay.sec = 0;
+  timer->delay.msec = timeout_time;
+  time_val_normalize(&timer->delay);
+  return start_timer(timer);
+}
+
 
 int init_timer_thread() {
-  timer_heap_create(DEFAULT_TIMER_HEAP_SIZE, &ht);
+  int ret = 0;
+  ret = timer_heap_create(DEFAULT_TIMER_HEAP_SIZE, &g_timer_heap);
+  if (0 != ret) {
+    LOG(ERROR, "timer_heap_create failed.");
+    return ret;
+  }
   pthread_t thread_id;
-  pthread_create(&thread_id, NULL, &timer_thread, (void*)ht);
+  ret = pthread_create(&thread_id, NULL, &timer_thread, (void*)g_timer_heap);
+  if (0 != ret) {
+    LOG(ERROR, "create timer thread failed \n");
+    timer_heap_destroy(&g_timer_heap);
+  }
+  return ret;
 }
 
-int main() {
-  init_timer_thread();
-  msg_timer_t timer;
-  int test_data = 3;
-  init_timer(&timer, (void*)&test_data, &timeout_callback, 3000);
-  start_timer(&timer);
-  sleep(1000);
-  return 0;
-}
+//int main() {
+//  init_timer_thread();
+//  msg_timer_t timer;
+//  msg_timer_t timer2;
+//  int test_data = 3;
+//  int test_data2 = 2;
+//  init_timer(&timer, &timeout_callback, (void*)&test_data, 3000);
+//  init_timer(&timer2, &timeout_callback, (void*)&test_data2, 1000);
+//  start_timer(&timer);
+//  sleep(1);
+//  start_timer(&timer2);
+//  stop_timer(&timer);
+//  sleep(1000);
+//  return 0;
+//}

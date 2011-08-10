@@ -18,7 +18,6 @@ uint8 get_self_role();
 uint8 get_app_location(msg_receiver_t app, node_id_t* node_list);
 node_id_t get_self_node_id();
 
-void init_msg_center();
 
 void get_self_mac(uint8* mac);
 void get_peer_mac(node_id_t node_id, uint8* mac);
@@ -27,6 +26,9 @@ uint8 get_msg_center_group_id();
 uint16 get_msg_center_app_id();
 void get_serv_info(node_id_t node_id, int8* serv_ip, uint16* serv_port);
 uint16 get_self_port();
+
+void init_sys_info();
+
 #ifdef __cplusplus
 }
 #endif

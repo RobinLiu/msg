@@ -4,10 +4,6 @@
 extern "C" {
 #endif
 #include "common/include/common.h"
-//#include "message.h"
-
-
-
 
 error_no_t send_msg_to_msg_router(message_t* msg);
 

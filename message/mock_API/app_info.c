@@ -124,32 +124,6 @@ void read_config() {
 
   LOG(INFO, "g_msg_center_group_id:%d, g_msg_center_app_id:%d",
       g_msg_center_group_id, g_msg_center_app_id);
-
-  /*memset(buf, 0, sizeof(buf));
-  fgets(buf, sizeof(buf), file);
-  sscanf(buf, "SERVIP=%s", g_serv_ip);
-  LOG(INFO, "SERVIP %s", g_serv_ip);
-
-  memset(buf, 0, sizeof(buf));
-  fgets(buf, sizeof(buf), file);
-  sscanf(buf, "SERVPORT=%d", &tmp);
-  g_serv_port = (uint16)tmp;
-  LOG(INFO, "SERVPORT %d", g_serv_port);
-
-
-  memset(buf, 0, sizeof(buf));
-  fgets(buf, sizeof(buf), file);
-  sscanf(buf, "SELFPORT=%d", &tmp);
-  g_self_port = (uint16)tmp;
-  LOG(INFO, "SELFPORT %d", g_self_port);
-
-  memset(buf, 0, sizeof(buf));
-  fgets(buf, sizeof(buf), file);
-  sscanf(buf, "DSTGroupID=%d", &tmp);
-  dst_group_id = (uint16)tmp;
-
-  LOG(INFO,"Node:%d, group:%d, App:%d, DST:%d",
-      g_node_id, g_group_id, g_app_id, dst_group_id);*/
   fclose(file);
 }
 
@@ -186,11 +160,12 @@ void init_node_info(node_info_t* node, int32 index) {
   }
 }
 
-void init_system() {
+void init_sys_info() {
   int32 i = 0;
   for(i = 0; i < MAX_NODE_NUM; ++i) {
     init_node_info(&cluster_info.node_info[i], i);
   }
+  read_config();
 }
 
 void print_cluster_info() {
@@ -205,11 +180,11 @@ void print_cluster_info() {
   }
 }
 
-void init_msg_center() {
-  init_system();
-  read_config();
-//  print_cluster_info();
-}
+//void init_msg_center() {
+//  init_system();
+//  read_config();
+////  print_cluster_info();
+//}
 
 
 void get_self_mac(uint8* mac){

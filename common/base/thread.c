@@ -3,6 +3,7 @@
 #include <time.h>
 
 #ifdef USING_POSIX_THREAD
+#define THREAD_BLOCK_TIME  60 /*60s*/
 
 void create_thread(thread_id_t* thread_id,
                     thread_attr_t* thread_attr,
@@ -25,7 +26,7 @@ void thread_cond_init(pthread_cond_t* threshold) {
 void wait_to_be_notified(thread_cond_t* cond, lock_t* mutex) {
   struct timespec tv;
   clock_gettime(CLOCK_REALTIME, &tv);
-  tv.tv_sec += 1;
+  tv.tv_sec += THREAD_BLOCK_TIME;
   pthread_cond_timedwait(cond, mutex, &tv);
 }
 

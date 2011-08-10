@@ -9,15 +9,15 @@ extern "C" {
 //using layer2 to transport the message.
 #if USING_LAYER2
 
-#define PROTO_VER     0
+#define PROTO_VER         0
 
-#define PDU_RESET      0
-#define PDU_RESET_ACK  1
-#define PDU_HELLO      2
-#define PDU_HELLO_ACK  3
-#define PDU_DATA       4
-#define PDU_ACK        5
-#define PDU_RETRANS    6
+#define PDU_RESET       0
+#define PDU_RESET_ACK   1
+#define PDU_HB          2
+#define PDU_HB_ACK      3
+#define PDU_DATA        4
+#define PDU_ACK         5
+#define PDU_RETRANS     6
 
 
 typedef struct link_header {
@@ -63,6 +63,8 @@ void init_msg_link();
 error_no_t send_msg_to_node(message_t* msg, node_id_t dest_node);
 
 void on_pkt_received(void* pkt, uint32 pkt_len);
+
+void node_state_changed(node_id_t node, uint8 status);
 
 #ifdef __cplusplus
 }

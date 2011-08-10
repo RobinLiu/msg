@@ -17,7 +17,8 @@
 
 /* Timer values. Unit is ms */
 #define RETRANS_TIMEOUT 500
-
+#define HEARTBEAT_TIMEOUT 15000
+#define MAX_UNACKED_HEARTBEAT_NUM 10
 // the ring buffer size, MUST be 2^n
 #define TX_WINDOW_MAX_SIZE (0x1 << 5)
 
@@ -47,9 +48,9 @@ typedef struct {
    struct msg_frag* frag;
 } tx_win_item_t;
 
-#define LINK_NOT_INITIALIZED  0
-#define LINK_STATUS_INIT      1
-#define LINK_STATUS_OK        2
+#define LINK_STATUS_UNKNOWN     0
+#define LINK_STATUS_DOWN        1
+#define LINK_STATUS_UP          2
 
 #if USING_UDP_FOR_MESSAGE
 typedef struct conn_info {
@@ -62,6 +63,9 @@ typedef struct link {
 
   node_id_t         peer;
   msg_timer_t       retrans_timer;
+  msg_timer_t       heartbeat_timer;
+  msg_timer_t       heartbeat_interval;
+  uint8             unacked_heatbeat_num;
   uint8             status;
   uint8             peer_status;
   lock_t            lock;
@@ -285,19 +289,19 @@ static void send_reset_ack(msg_link_t* link) {
 }
 #endif
 
-static void send_hello(msg_link_t* link) {
-  if (link->status != LINK_STATUS_OK) {
-    LOG(INFO, "Begin to send hello");
-    send_zero_msg(link->tx.frame_seq, PDU_HELLO, link->peer, link->status);
-    LOG(INFO, "end send hello");
-  }
+static void send_heartbeat(msg_link_t* link) {
+//  if (link->status != LINK_STATUS_OK) {
+    LOG(INFO, "Begin to send HeartBeat");
+    send_zero_msg(link->tx.frame_seq, PDU_HB, link->peer, link->status);
+    LOG(INFO, "end send HeartBeat");
+//  }
 }
 
 
-static void send_hello_ack(msg_link_t* link) {
-  LOG(INFO, "Begin to send hello ack");
-  send_zero_msg(link->tx.frame_seq, PDU_HELLO_ACK, link->peer, link->status);
-  LOG(INFO, "end send hello ack");
+static void send_heartbeat_ack(msg_link_t* link) {
+  LOG(INFO, "Begin to send HeartBeat ack");
+  send_zero_msg(link->tx.frame_seq, PDU_HB_ACK, link->peer, link->status);
+  LOG(INFO, "end send HeartBeat ack");
 }
 
 
@@ -397,29 +401,26 @@ static void* tx_thread_worker(void* arg){
   msg_link_t* link = ( msg_link_t*)arg;
 
   message_t* msg = NULL;
-  send_hello(link);
+  send_heartbeat(link);
 
   while(1) {
     lock(&link->tx.tx_lock);
-//    LOG(INFO, "TX thread while...");
     if(list_empty(&link->tx.msg_queue) ||
         sliding_window_is_full(link) ||
-        link->status != LINK_STATUS_OK ||
-        link->peer_status != LINK_STATUS_OK) {
-//      LOG(INFO, "Sleep...");
+        link->status != LINK_STATUS_UP ||
+        link->peer_status != LINK_STATUS_UP) {
       wait_to_be_notified(&link->tx.tx_queue_threshold, &link->tx.tx_lock);
-//      LOG(INFO, "TX thread waked up, check the conditions....");
     }
 
-//    lock(&link->lock);
-    if(link->status != LINK_STATUS_OK || link->peer_status != LINK_STATUS_OK) {
-      LOG(WARNING, "Link stats is not ok");
+    if(link->status != LINK_STATUS_UP || link->peer_status != LINK_STATUS_UP) {
+      LOG(WARNING, "Link status is not ok");
       unlock(&link->tx.tx_lock);
-      send_hello(link);
-      //TODO: how to deal with if link is not ok?
+      if (LINK_STATUS_UNKNOWN == link->peer_status) {
+        send_heartbeat(link);
+      }
       continue;
     }
-//    unlock(&link->lock);
+
     if(list_empty(&link->tx.msg_queue)) {
       unlock(&link->tx.tx_lock);
       continue;
@@ -431,12 +432,10 @@ static void* tx_thread_worker(void* arg){
       continue;
     }
 
-//    LOG(INFO, "Begin to put message to sliding window");
     //get one message from message queue and put it into sliding window;
     msg = list_entry(link->tx.msg_queue.next, message_t, list);
     CHECK(NULL != msg);
     put_msg_into_sliding_window(msg, link);
-//    LOG(INFO, "finished send one package");
 
     //this message has been put to sliding window, delete it
     list_del(&msg->list);
@@ -457,17 +456,19 @@ void timeout_handle(void* data) {
 
   LOG(INFO, "Timeout for msg ack, retrans it.");
   lock(&link->tx.tx_lock);
-  LOG(INFO, "Locked");
   if (link->tx.retrans_timeout_count < MAX_RETRNS_COUNT) {
     send_retrans(link->tx.win_start, link);
     link->tx.retrans_timeout_count++;
+//    renew_timer(&link->retrans_timer, RETRANS_TIMEOUT);
   } else {
-    LOG(WARNING, "Max retry count reached, drop the fragment.");
-    stop_timer(&link->retrans_timer);
-    //drop the frag and move to next frag.
-    uint16 new_win_start = WIN_INDEX_ADD(link->tx.win_start, 1);
-    //del msg_frag from sliding window
-    sliding_window_move_to(new_win_start, link);
+    //TODO: maybe need to set the status of the link unavailable
+    link->peer_status = LINK_STATUS_DOWN;
+//    LOG(ERROR, "Max retry count reached, drop the fragment.");
+////    stop_timer(&link->retrans_timer);
+//    //drop the frag and move to next frag.
+//    uint16 new_win_start = WIN_INDEX_ADD(link->tx.win_start, 1);
+//    //del msg_frag from sliding window
+//    sliding_window_move_to(new_win_start, link);
     link->tx.retrans_timeout_count = 0;
   }
   //TODO: find a better solution for timer,
@@ -477,6 +478,27 @@ void timeout_handle(void* data) {
     renew_timer(&link->retrans_timer, RETRANS_TIMEOUT);
   }
   LOG(INFO, "Out timeout_handle");
+}
+
+void start_heartbeater(void* data) {
+  CHECK(NULL != data);
+  msg_link_t* link = (msg_link_t*)data;
+  send_heartbeat(link);
+  start_timer(&link->heartbeat_timer);
+//  start_timer(&link->heartbeat_interval);
+}
+
+void heartbeat_timeout_handle(void* data) {
+  CHECK(NULL != data);
+  msg_link_t* link = (msg_link_t*)data;
+  lock(&link->lock);
+  link->unacked_heatbeat_num++;
+  if (MAX_UNACKED_HEARTBEAT_NUM <= link->unacked_heatbeat_num) {
+    link->peer_status = LINK_STATUS_DOWN;
+  } else {
+    start_heartbeater((void*)link);
+  }
+  unlock(&link->lock);
 }
 
 static void get_conn_info(node_id_t node_id, conn_info_t* conn_info) {
@@ -500,16 +522,15 @@ static void init_link(node_id_t node_id, msg_link_t* link) {
   init_lock(&link->lock);
   init_lock(&link->tx.tx_lock);
   init_lock(&link->rx.rx_lock);
-//  init_lock(&link->rx.msg_queue_lock);
-  link->peer = node_id;
   get_conn_info(node_id, &link->conn_info);
-  // create_udp_client();
   thread_cond_init(&link->tx.tx_queue_threshold);
-  link->status = LINK_NOT_INITIALIZED;
-  //create thread to send package
+  link->peer = node_id;
+  link->status = LINK_STATUS_DOWN;
+  link->peer_status = LINK_STATUS_UNKNOWN;
 
-  uint32 timeout = RETRANS_TIMEOUT;
-  setup_timer(&link->retrans_timer, &timeout_handle, (void*)link, timeout);
+  init_timer(&link->retrans_timer, &timeout_handle, (void*)link, RETRANS_TIMEOUT);
+  init_timer(&link->heartbeat_interval, &start_heartbeater, (void*)link, HEARTBEAT_TIMEOUT);
+  init_timer(&link->heartbeat_timer, &heartbeat_timeout_handle, (void*)link, HEARTBEAT_TIMEOUT);
   create_thread(&link->tx.tx_thread_id,
                NULL,
                tx_thread_worker,
@@ -601,42 +622,43 @@ static void handle_reset(uint8* pkt, msg_link_t* link) {
 }
 
 static void handle_reset_ack(uint8* pkt, msg_link_t* link) {
-  //send_hello(link);
+  //send_heartbeat(link);
 }
 #endif
 
 
-static void handle_hello(uint8* pkt, msg_link_t* link) {
+static void handle_heartbeat(uint8* pkt, msg_link_t* link) {
 
   lock(&link->lock);
   lock(&link->rx.rx_lock);
-  LOG(INFO, "Hello is received");
+  LOG(INFO, "HeartBeat is received");
   link_header_t* lh = (link_header_t*)pkt;
   link->rx.exp_frame_seq = lh->frag_seq;
-  link->peer_status = LINK_STATUS_OK;
-  send_hello_ack(link);
-  link->status = LINK_STATUS_OK;
+  link->peer_status = LINK_STATUS_UP;
+  send_heartbeat_ack(link);
+  link->status = LINK_STATUS_UP;
   unlock(&link->rx.rx_lock);
   unlock(&link->lock);
 }
 
 
-static void handle_hello_ack(uint8* pkt, msg_link_t* link) {
+static void handle_heartbeat_ack(uint8* pkt, msg_link_t* link) {
   lock(&link->lock);
   lock(&link->rx.rx_lock);
-  LOG(INFO, "Hello ack is received");
+  stop_timer(&link->heartbeat_timer);
+  LOG(INFO, "HeartBeat ack is received");
   link_header_t* lh = (link_header_t*)pkt;
   link->peer_status = lh->msg_seq;
   link->rx.exp_frame_seq = lh->frag_seq;
   unlock(&link->rx.rx_lock);
-  link->status = LINK_STATUS_OK;
-  link->peer_status = LINK_STATUS_OK;
+  link->status = LINK_STATUS_UP;
+//  link->peer_status = LINK_STATUS_UP;
 
-  if (LINK_STATUS_OK == link->peer_status) {
+  if (LINK_STATUS_UP == link->peer_status) {
     notify_thread(&link->tx.tx_queue_threshold);
   } else {
-    LOG(INFO, "peer is not ok, send hello again");
-    send_hello(link);
+    LOG(INFO, "peer is not ok, send HeartBeat again");
+    send_heartbeat(link);
   }
   unlock(&link->lock);
 }
@@ -723,11 +745,10 @@ static void handle_ack(void* pkt, msg_link_t* link) {
   int32 win_ind_ret = sliding_window_get_ind(lh->frag_seq, link);
   if(win_ind_ret < 0 ) {
     LOG(WARNING, "Incorrect ack received, drop it");
-    send_hello(link);
+    send_heartbeat(link);
     unlock(&link->tx.tx_lock);
     return;
   }
-
 
   LOG(INFO, "ack is received for frag:%d", lh->frag_seq);
   uint16 win_ind = (uint16)win_ind_ret;
@@ -758,14 +779,13 @@ static void handle_ack(void* pkt, msg_link_t* link) {
 
 
 static void handle_retrans_req(void* pkt, msg_link_t* link) {
-  //CHECK(0 == 1);
   lock(&link->tx.tx_lock);
   link_header_t* lh = (link_header_t*)pkt;
   int32 win_ind_ret = sliding_window_get_ind(lh->frag_seq, link);
   if(win_ind_ret < 0 ) {
     LOG(WARNING, "Incorrect retrans req received, drop it");
     unlock(&link->tx.tx_lock);
-    send_hello(link);
+    send_heartbeat(link);
     return;
   }
   uint16 win_ind = (uint16)win_ind_ret;
@@ -805,6 +825,7 @@ void on_pkt_received(void* pkt, uint32 pkt_len) {
     return;
   }
 
+  stop_timer(&link->heartbeat_interval);
   switch(lh->pdu_type) {
 #if  ENABLE_RESET_LINK
     case PDU_RESET:
@@ -814,24 +835,24 @@ void on_pkt_received(void* pkt, uint32 pkt_len) {
       handle_reset_ack(frag_ment, link);
       break;
 #endif
-    case PDU_HELLO:
-      handle_hello(frag_ment, link);
+    case PDU_HB:
+      handle_heartbeat(frag_ment, link);
       break;
-    case PDU_HELLO_ACK:
-      handle_hello_ack(frag_ment, link);
+    case PDU_HB_ACK:
+      handle_heartbeat_ack(frag_ment, link);
       break;
     case PDU_DATA:
-      if (link->status == LINK_STATUS_OK) {
+      if (link->status == LINK_STATUS_UP) {
         handle_data(frag_ment, link);
       }
       break;
     case PDU_ACK:
-      if (link->status == LINK_STATUS_OK) {
+      if (link->status == LINK_STATUS_UP) {
         handle_ack(frag_ment, link);
       }
       break;
     case PDU_RETRANS:
-      if (link->status == LINK_STATUS_OK) {
+      if (link->status == LINK_STATUS_UP) {
         handle_retrans_req(frag_ment, link);
       }
       break;
@@ -839,4 +860,29 @@ void on_pkt_received(void* pkt, uint32 pkt_len) {
       LOG(WARNING, "Unknown package received, drop it.");
       break;
   }
+  start_timer(&link->heartbeat_interval);
+}
+
+void node_state_changed(node_id_t node, uint8 status) {
+  LOG(INFO, "node status changed to %d", status);
+  msg_link_t* link = get_msg_link(node);
+  if(NULL == link) {
+    return;
+  }
+  lock(&link->lock);
+//  link->peer_status = status;
+  if(LINK_STATUS_UP == status) {
+    //set to this status so that we can start to do the heartbeat;
+    link->peer_status = LINK_STATUS_UNKNOWN;
+    notify_thread(&link->tx.tx_queue_threshold);
+  } else {
+    LOG(INFO, "link went down");
+    //explicitly set the status as down so that heartbeat will not be sent.
+    link->peer_status = LINK_STATUS_DOWN;
+    //stop all timers(activities)
+    stop_timer(&link->heartbeat_timer);
+    stop_timer(&link->retrans_timer);
+    stop_timer(&link->heartbeat_interval);
+  }
+  unlock(&link->lock);
 }

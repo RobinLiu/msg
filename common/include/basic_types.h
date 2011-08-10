@@ -76,6 +76,14 @@ typedef struct {
 #define MAC_ADDR_STR_LEN  18
 #define ETH_P_MSG 0x88aa
 
+#define MSG_ID_NODE_STATUS  1
+
+typedef struct node_status {
+  uint8 node_id;
+  uint8 node_status;
+} node_status_t;
+
+
 #ifdef __cplusplus
 }
 #endif

@@ -1,6 +1,7 @@
 #include "message_center.h"
 #include "message_router.h"
 #include "common/base/message.h"
+#include "common/base/timer.h"
 #include "common/base/msg_queue.h"
 #include "message/mock_API/app_info.h"
 #include "msg_link.h"
@@ -9,12 +10,16 @@
 #include <string.h>
 
 
-void msg_main() {
-
-  init_msg_center();
+void init_msg_center() {
+  init_sys_info();
+  init_timer_thread();
   init_msg_link();
   create_rcv_thread();
-  msg_queue_id_t in_msg_queue = get_self_msg_queue_id();
+}
+
+void msg_main() {
+  init_msg_center();
+  msg_queue_id_t in_msg_queue = get_msg_center_queue_id();
   LOG(INFO, "Begin receive msg in queue:%d", (int)in_msg_queue);
   uint8 msg_buf[MSG_QUEUE_BUF_SIZE] = {0};
   message_t* msg = NULL;
