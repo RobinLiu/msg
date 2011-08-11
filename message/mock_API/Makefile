@@ -1,14 +1,15 @@
-CFLAGS +=	-fmessage-length=0 -fPIC -shared \
-          -I./ -I../.. -I ../src
-CXXFLAGS = -fPIC -shared
+CFLAGS +=	-fmessage-length=0  \
+          -I./ -I../.. -I ../src #-fPIC -shared
+#CXXFLAGS = -fPIC -shared
 OBJS := $(patsubst %.c,%.o,$(wildcard *.c))
 OBJS += $(patsubst %.cpp,%.o,$(wildcard *.cpp))
 LIBS =
 
-TARGET = ../../libs/libmock.so
+TARGET = ../../libs/libmock.a
 
 $(TARGET):	$(OBJS)
-	$(CC)  $(CXXFLAGS) $(OBJS) $(LIBS) -o $(TARGET)
+#	$(CC)  $(CFLAGS) $(OBJS) $(LIBS)
+	ar rcs $(TARGET) $(OBJS)
 
 
 all:	$(TARGET)

@@ -43,6 +43,7 @@ void process_msg(message_t* msg) {
   }
 }
 
+
 error_no_t router_receive_msg(message_t* msg) {
 //  LOG(ERROR, "Num of msg received is %d", );
 //  LOG(INFO, "New package received from other node, route it to app");
@@ -57,10 +58,13 @@ error_no_t router_receive_msg(message_t* msg) {
   msg_queue_id_t msg_queue_id = get_app_queue_id(msg->header->rcver.group_id,
                                                  msg->header->rcver.app_id);
 
-  if (0 != send_msg_to_queue(msg_queue_id, msg, 0)) {
+  if (0 != send_msg_to_queue(msg_queue_id, msg, RETRY_TIMES)) {
     ++num_of_droped_msg;
   }
   LOG(ERROR, "received %d, droped %d", ++num_of_msg, num_of_droped_msg);
+//  if (100000 == num_of_msg) {
+//    exit(0);
+//  }
   return SUCCESS_EC;
 }
 

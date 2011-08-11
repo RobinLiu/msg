@@ -1,14 +1,15 @@
 #FIXME	get the path of the root
 ROOT_DIR=../
-DIRS= $(ROOT_DIR)/common/base \
-      $(ROOT_DIR)/common/logging \
+DIRS= $(ROOT_DIR)/common/logging \
+      $(ROOT_DIR)/common/base \
       $(ROOT_DIR)/message/mock_API \
       $(ROOT_DIR)/message/build \
       $(ROOT_DIR)/testapp
 
-COMPILE_OPT = -pg -O2 -g -Wall -Wextra #-Werror -Wfatal-errors 
-#COMPILE_OPT = -pg -O -g
+COMPILE_OPT =  -pg -O2 -g -Wall -Wextra #-Werror -Wfatal-errors 
+#COMPILE_OPT = -pg -O -g -fprofile-arcs -ftest-coverage
 
+#export GCOVFLAGS = 
 export CFLAGS = $(COMPILE_OPT)
 export CXXFLAGS = $(COMPILE_OPT)
 export CC=gcc

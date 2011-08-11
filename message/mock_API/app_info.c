@@ -52,6 +52,8 @@ uint8 get_self_role() {
   return cluster_info.node_info[g_node_id].group_info[g_group_id].role;
 }
 
+
+//TODO: optimize this piece of code. using other data structure to reduce the loops
 uint8 get_app_location(msg_receiver_t app, node_id_t* node_list) {
   int32 i = 0;
   int32 j = 0;

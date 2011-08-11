@@ -1,0 +1,5 @@
+NodeID=4
+GroupID=32
+AppID=1
+MSGGroupID=32
+MSGAppID=1

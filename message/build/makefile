@@ -25,8 +25,6 @@ MAIN_FILE = $(SRC_DIRS)/msgmain.c
 TARGET_LIB = lib$(PROGRAM_NAME).a
 #TEST_TARGET = $(PROGRAM_NAME)_tests
 
-GCOVFLAGS = -fprofile-arcs -ftest-coverage
-
 #includes for all compiles
 #INCLUDES =\
 #	-I ./ \

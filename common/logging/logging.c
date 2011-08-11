@@ -4,7 +4,7 @@
 #include <string.h>
 #include <pthread.h>
 
-int8 g_min_log_level = 0;
+int8 g_min_log_level = 2;
 
 pthread_mutex_t logging_lock;
 

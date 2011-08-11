@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
     }
     free_msg_buff(&msg);
 //    print_msg(msg);
-    LOG(INFO, "Number of msg send: %d, droped %d", num_of_send_msg, num_of_droped_msg);
+    LOG(ERROR, "Number of msg send: %d, droped %d", num_of_send_msg, num_of_droped_msg);
 //    if(num_of_msg == 65534) {
 //      return 0;
 //    }
