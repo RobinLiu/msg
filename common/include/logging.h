@@ -27,8 +27,8 @@ void SetMinLogLevel(int8 log_level);
 #define LOG_IS_ON(severity) \
   ((int8)(LOG_ ## severity) >= GetMinLogLevel())
 
-//#define ABORT abort()
-#define ABORT exit(-1)
+#define ABORT abort()
+//#define ABORT exit(-1)
 
 #define PROCESS_FATAL(severity) \
   if((LOG_ ## severity) == LOG_FATAL) { \

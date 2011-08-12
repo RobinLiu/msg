@@ -264,7 +264,7 @@ int timer_heap_create(int size, timer_heap_t** p_heap) {
   //init lock
   pthread_mutex_init(&ht->timer_lock, NULL);
   if (0 != pipe(ht->fd)) {
-    perror("pipe failed");
+    LOG(ERROR, "pipe failed: %s", strerror(errno));
     free(ht);
     return -1;
   }
@@ -447,9 +447,7 @@ int cal_timeout_time(timer_heap_t* ht) {
 
 
 void* timer_thread(void* data) {
-  if(NULL == data) {
-    return NULL;
-  }
+  CHECK(NULL != data);
   timer_heap_t* ht = (timer_heap_t*)data;
 
   struct pollfd pfd = {ht->fd[0], POLLIN, 0};
@@ -459,19 +457,14 @@ void* timer_thread(void* data) {
 
   while(1) {
     timeout = cal_timeout_time(ht);
-//    printf("timeout is %d\n", timeout);
     ret = poll(&pfd, 1, timeout);
     if (0 == ret) {
-//      printf("timeout...\n");
-      timer_heap_poll(ht, NULL);
     } else if (1 ==ret) {
-//      printf("A timer scheduled\n");
       CHECK(1 == read(ht->fd[0], flag, 1));
-      timer_heap_poll(ht, NULL);
     } else {
-//      perror("poll error");
-      LOG(ERROR, "%s", strerror(errno));
+      LOG(INFO, "%s", strerror(errno));
     }
+    timer_heap_poll(ht, NULL);
   }
 }
 
@@ -491,9 +484,10 @@ void stop_timer(msg_timer_t* timer) {
 int start_timer(msg_timer_t* timer) {
   timer_heap_cancel(g_timer_heap, timer);
   int ret = timer_heap_schedule(g_timer_heap, timer, &timer->delay);
-  if(0 != ret) {
-    LOG(ERROR, "add timer failed\n");
-  }
+//  if(0 != ret) {
+//    LOG(ERROR, "add timer failed\n");
+//  }
+  CHECK(0 == ret, "add timer failed");
   return ret;
 }
 
@@ -504,20 +498,32 @@ int renew_timer(msg_timer_t* timer, uint32 timeout_time) {
   return start_timer(timer);
 }
 
-
+bool is_timer_started(msg_timer_t* timer) {
+  return (-1 != timer->timer_id);
+}
+#include <signal.h>
 int init_timer_thread() {
   int ret = 0;
   ret = timer_heap_create(DEFAULT_TIMER_HEAP_SIZE, &g_timer_heap);
-  if (0 != ret) {
-    LOG(ERROR, "timer_heap_create failed.");
-    return ret;
-  }
+  CHECK(0 == ret, "timer_heap_create failed.");
+//  if (0 != ret) {
+//    LOG(ERROR, "timer_heap_create failed.");
+//    return ret;
+//  }
   pthread_t thread_id;
   ret = pthread_create(&thread_id, NULL, &timer_thread, (void*)g_timer_heap);
   if (0 != ret) {
     LOG(ERROR, "create timer thread failed \n");
     timer_heap_destroy(&g_timer_heap);
   }
+  CHECK(0 == ret, "Create timer thread failed");
+
+  ret = pthread_kill(thread_id, 0);
+  while (ESRCH == ret) {
+    sleep(1);
+    ret = pthread_kill(thread_id, 0);
+  }
+
   return ret;
 }
 

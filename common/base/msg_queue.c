@@ -151,7 +151,7 @@ void* message_receiver_thread(void* arg) {
                                     MSG_QUEUE_BUF_SIZE,
                                     &msg_prio);
     if(ret <0 ) {
-      perror("receive msg in msg queue failed");
+      LOG(ERROR, "receive msg in msg queue failed: %s", strerror(errno));
     }
     msg_header_t mh;
     memset(&mh, 0, sizeof(mh));

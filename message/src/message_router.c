@@ -61,7 +61,7 @@ error_no_t router_receive_msg(message_t* msg) {
   if (0 != send_msg_to_queue(msg_queue_id, msg, RETRY_TIMES)) {
     ++num_of_droped_msg;
   }
-  LOG(ERROR, "received %d, droped %d", ++num_of_msg, num_of_droped_msg);
+//  LOG(ERROR, "received %d, droped %d", ++num_of_msg, num_of_droped_msg);
 //  if (100000 == num_of_msg) {
 //    exit(0);
 //  }

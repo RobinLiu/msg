@@ -9,7 +9,10 @@ extern uint16 dst_group_id;
 uint32 recvd_msg_num = 0;
 void on_msg_received(void* msg) {
   CHECK(NULL != msg);
-  LOG(ERROR, "Received %d messages", ++recvd_msg_num);
+  ++recvd_msg_num;
+  if(0 == (recvd_msg_num % 10000)) {
+    LOG(ERROR, "Received %d messages", recvd_msg_num);
+  }
 //  print_msg((message_t*)msg);
 }
 
@@ -86,6 +89,7 @@ int main(int argc, char** argv) {
 */
 
 
+  LOG(ERROR, "Begin Number of msg send: %d, received %d", num_of_send_msg, recvd_msg_num);
   while(num_of_msg--) {
 //  while(1) {
     uint32 msglen = 2000;
@@ -105,8 +109,9 @@ int main(int argc, char** argv) {
     }
     free_msg_buff(&msg);
 //    print_msg(msg);
-    LOG(ERROR, "Number of msg send: %d, droped %d", num_of_send_msg, num_of_droped_msg);
-//    if(num_of_msg == 65534) {
+    LOG(INFO, "Number of msg send: %d, droped %d", num_of_send_msg, num_of_droped_msg);
+//    if(0 == (num_of_msg % 500)) {
+//      sleep(2);
 //      return 0;
 //    }
 //    usleep(100);
@@ -114,7 +119,9 @@ int main(int argc, char** argv) {
 //    getchar();
   }
 
+  LOG(ERROR, "Number of msg send: %d, received %d", num_of_send_msg, recvd_msg_num);
   while ('q' != getchar()) {
+    LOG(ERROR, "Number of msg send: %d, received %d", num_of_send_msg, recvd_msg_num);
     continue;
   }
 //  destroy_msg_queue();
