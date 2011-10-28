@@ -323,15 +323,15 @@ static void send_reset_ack(msg_link_t* link) {
 }
 #endif
 
-static uint16 get_start_frame_seq(msg_link_t* link) {
-  if (NULL == link->tx.win[link->tx.win_start].frag ||
-      NULL == link->tx.win[link->tx.win_start].frag->data) {
-    return link->tx.frame_seq;
-  }
-  msg_frag_t* frag = link->tx.win[link->tx.win_start].frag;
-  link_header_t* lh = (link_header_t*)(frag->data + ETH_HEADER_LEN);
-  return lh->frag_seq;
-}
+//static uint16 get_start_frame_seq(msg_link_t* link) {
+//  if (NULL == link->tx.win[link->tx.win_start].frag ||
+//      NULL == link->tx.win[link->tx.win_start].frag->data) {
+//    return link->tx.frame_seq;
+//  }
+//  msg_frag_t* frag = link->tx.win[link->tx.win_start].frag;
+//  link_header_t* lh = (link_header_t*)(frag->data + ETH_HEADER_LEN);
+//  return lh->frag_seq;
+//}
 
 static void send_heartbeat(msg_link_t* link) {
 //  if (link->status != LINK_STATUS_OK) {

@@ -39,7 +39,6 @@ typedef  msg_receiver_t     msg_sender_t;
 
 typedef uint16               node_id_t;
 
-
 typedef struct list_head {
    struct list_head *next, *prev;
 } list_head_t;

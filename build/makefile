@@ -17,7 +17,7 @@ export CXX=g++
 .PHONY : all $(DIRS)
 all: $(DIRS)
 $(DIRS):
-	$(MAKE) -C $@
+	@ $(MAKE) -C $@
 	
 $(ROOT_DIR)/common/base: $(ROOT_DIR)/common/logging
 $(ROOT_DIR)/message/mock_API: $(ROOT_DIR)/common/base

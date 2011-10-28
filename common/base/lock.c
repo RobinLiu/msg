@@ -27,21 +27,13 @@ int32 init_lock(lock_t* lock) {
 void _lock(lock_t* locker, char* file, int line) {
 //  CHECK(1 != locker->locked)
   LOG(INFO, "Begin lock %p in thread %x at[%s:%d]", &locker->locker, (uint32)pthread_self(), file, line);
-  int32 ret = pthread_mutex_lock(&locker->locker);
-/*  locker->locked = TRUE;
-  locker->locker_thread = pthread_self();
-  sprintf(locker->locker_info, "[%s:%d]", file, line);
-  CHECK(0 == ret);
-  LOG(INFO, "End lock %p in thread %x at[%s:%d]", &locker->locker, (uint32)pthread_self(), file, line);*/
-
+  pthread_mutex_lock(&locker->locker);
 }
 void _unlock(lock_t* locker, char* file, int line) {
+  (void)file;
+  (void)line;
   int32 ret = pthread_mutex_unlock(&locker->locker);
   CHECK(0 == ret);
-  /*LOG(INFO, "Unlock %p in thread %x at[%s:%d]", &locker->locker, (uint32)pthread_self(), file, line);
-  locker->locked = FALSE;
-  locker->locker_thread = 0;
-  memset(locker->locker_info, 0, 128);*/
 }
 #else
 void lock(lock_t* locker) {

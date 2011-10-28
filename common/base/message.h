@@ -11,7 +11,6 @@ message_t* allocate_msg_buff(uint32 msg_len);
 
 void check_buff_magic_num(message_t* msg);
 
-
 void fill_msg_header(uint8   des_group_id,
                      uint16  des_app_id,
                      uint8   range,

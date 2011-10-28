@@ -176,10 +176,10 @@ error_no_t send_msg_to_queue(msg_queue_id_t msg_queue_id,
                         retry_times);
 }
 
-//typedef struct {
-//  struct list_head list;
-//  message_t* msg;
-//} msg_node_t;
+typedef struct {
+  struct list_head list;
+  message_t* msg;
+} msg_node_t;
 
 struct list_head g_sync_msg_list;
 lock_t msg_list_lock;
@@ -203,24 +203,37 @@ void destroy_msg_queue() {
 void enqueue_msg_to_list(message_t* msg) {
   CHECK(NULL != msg);
   lock(&msg_list_lock);
-//  msg_node_t* node = (msg_node_t*)malloc(sizeof(msg_node_t));
-//  CHECK(NULL != node);
-//  node->msg = msg;
+  msg_node_t* node = (msg_node_t*)malloc(sizeof(msg_node_t));
+  CHECK(NULL != node);
+  node->msg = msg;
   list_add_tail(&g_sync_msg_list, &msg->list);
   unlock(&msg_list_lock);
 }
 
-/*void is_sync_msg(message_t* msg) {
+int cmp_msg_header(message_t* msg_a, message_t* msg_b) {
+
+	return -1;
+}
+
+void process_sync_msg(message_t* msg) {
   struct list_head* plist = NULL;
-  message_t* rcvd_msg = NULL;
-  list_for_each(plist, g_sync_msg_list) {
-    rcvd_msg = list_entry(g_sync_msg_list->list.next, message_t, list);
+  message_t* iter_msg = NULL;
+  //TODO: need to be optimized for search.
+  list_for_each(plist, &g_sync_msg_list) {
+    iter_msg = list_entry(plist, message_t, list);
     CHECK(NULL != msg);
+    CHECK(NULL != iter_msg);
+    //This is a sync message. Read the message and del oringinal one.
+    if (0 == cmp_msg_header(iter_msg, msg)) {
+    	 list_del(plist);
+    	 return msg;
   }
 }
-*/
+}
+
 
 void send_msg_sync(message_t* msg) {
+	enqueue_msg_to_list(msg);
 
 }
 
