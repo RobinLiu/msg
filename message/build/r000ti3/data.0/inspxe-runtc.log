@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<log version="1.0" tool="runtool">
+
+<msg id="1" tool="runtool">
+  <type>log-start</type>
+  <arg>2011/09/13 16:13:42</arg>
+</msg>
+<msg id="2" tool="runtool">
+  <type>tc-starts</type>
+</msg>
+<msg id="3" tool="runtool">
+  <type>marker-file</type>
+  <arg>/home/robin/share/code/message/build/r000ti3/r000ti3.inspxe</arg>
+</msg>
+<msg id="4" tool="tc">
+  <type>2207</type>
+  <timestamp>Tue Sep 13 16:13:44 2011</timestamp>
+  <severity>2</severity>
+  <description>START</description>
+</msg>
+<msg id="5" tool="tc">
+  <type>2001</type>
+  <arg>/home/robin/share/code/message/build/message</arg>
+  <timestamp>Tue Sep 13 16:13:44 2011</timestamp>
+  <severity>2</severity>
+  <description>LOAD_MODULE</description>
+</msg>
+<msg id="6" tool="tc">
+  <type>2001</type>
+  <arg>/lib/ld-linux.so.2</arg>
+  <timestamp>Tue Sep 13 16:13:44 2011</timestamp>
+  <severity>2</severity>
+  <description>LOAD_MODULE</description>
+</msg>
+<msg id="7" tool="tc">
+  <type>2001</type>
+  <arg>/lib/libpthread.so.0</arg>
+  <timestamp>Tue Sep 13 16:13:46 2011</timestamp>
+  <severity>2</severity>
+  <description>LOAD_MODULE</description>
+</msg>
+<msg id="8" tool="tc">
+  <type>2001</type>
+  <arg>/usr/lib/libstdc++.so.6</arg>
+  <timestamp>Tue Sep 13 16:13:46 2011</timestamp>
+  <severity>2</severity>
+  <description>LOAD_MODULE</description>
+</msg>
+<msg id="9" tool="tc">
+  <type>2001</type>
+  <arg>/lib/librt.so.1</arg>
+  <timestamp>Tue Sep 13 16:13:46 2011</timestamp>
+  <severity>2</severity>
+  <description>LOAD_MODULE</description>
+</msg>
+<msg id="10" tool="tc">
+  <type>2001</type>
+  <arg>/lib/libc.so.6</arg>
+  <timestamp>Tue Sep 13 16:13:47 2011</timestamp>
+  <severity>2</severity>
+  <description>LOAD_MODULE</description>
+</msg>
+<msg id="11" tool="tc">
+  <type>2001</type>
+  <arg>/lib/libm.so.6</arg>
+  <timestamp>Tue Sep 13 16:13:47 2011</timestamp>
+  <severity>2</severity>
+  <description>LOAD_MODULE</description>
+</msg>
+<msg id="12" tool="tc">
+  <type>2001</type>
+  <arg>/lib/libgcc_s.so.1</arg>
+  <timestamp>Tue Sep 13 16:13:47 2011</timestamp>
+  <severity>2</severity>
+  <description>LOAD_MODULE</description>
+</msg>
+<msg id="13" tool="runtool">
+  <type>app-exit-code</type>
+  <arg>137</arg>
+</msg>
+<msg id="14" tool="runtool">
+  <type>marker-file</type>
+  <arg>/home/robin/share/code/message/build/r000ti3/r000ti3.inspxe</arg>
+</msg>
+<msg id="15" tool="runtool">
+  <type>tc-canceled</type>
+</msg>
+<msg id="16" tool="runtool">
+  <type>log-end</type>
+  <arg>2011/09/13 16:15:38</arg>
+</msg>
+
+</log>
+

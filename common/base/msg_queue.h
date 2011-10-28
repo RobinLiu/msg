@@ -35,7 +35,7 @@ error_no_t msg_queue_receive(msg_queue_id_t msg_queue_id,
 
 msg_queue_id_t get_self_msg_queue_id();
 
-void init_msg_queue(MSG_RCVD_CB msg_rcvd_cb);
+void init_msg_system(MSG_RCVD_CB msg_rcvd_cb);
 
 error_no_t send_msg(message_t* msg);
 

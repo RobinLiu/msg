@@ -3,17 +3,19 @@
 #include "message.h"
 #include "common/include/common.h"
 #include "message/mock_API/app_info.h"
+#include "common/include/common_list.h"
+
 #include <string.h>
 #include <errno.h>
 #include <time.h>
- #include <unistd.h>
+#include <unistd.h>
 
-#if USING_POSIX_MSG_QUEUE
-#define FILE_MODE         0664
-#define QUEUE_NAME_LEN    128
-#define CLIENT_MSG_QUEUE_SIZE    64
-#define SERVER_MSG_QUEUE_SIZE  512
-#define MSG_SEND_TIME     500000000  //0.5s In nanoseconds
+//#if USING_POSIX_MSG_QUEUE
+#define FILE_MODE               0664
+#define QUEUE_NAME_LEN          128
+#define CLIENT_MSG_QUEUE_SIZE   64
+#define SERVER_MSG_QUEUE_SIZE   512
+#define MSG_SEND_TIME           500000000  //0.5s In nanoseconds
 
 
 msg_queue_id_t g_msg_queue_id = -1;
@@ -32,15 +34,6 @@ msg_queue_id_t open_msg_queue(queue_identifier_t queue_identifier,
   mqd_t mq_id = mq_open(queue_identifier, O_RDWR|O_CREAT, FILE_MODE, &attr);
   CHECK(-1 != mq_id, "%s", strerror(errno));
   LOG(INFO, "%s opened as queue %d", queue_identifier, (int)mq_id);
-/*
- *The  values  of  the  mq_maxmsg,  mq_msgsize, and mq_curmsgs members of
- *the mq_attr structure shall be ignored by mq_setattr().
- * */
-//  int ret = mq_setattr(mq_id, &attr, NULL);
-//  if (ret != 0) {
-//    perror("mq_setattr failed");
-//  }
-
   mq_getattr(mq_id, &attr);
   LOG(INFO, "attr.mq_msgsize %ld, attr.mq_maxmsg %ld",
       attr.mq_msgsize, attr.mq_maxmsg);
@@ -183,10 +176,18 @@ error_no_t send_msg_to_queue(msg_queue_id_t msg_queue_id,
                         retry_times);
 }
 
+//typedef struct {
+//  struct list_head list;
+//  message_t* msg;
+//} msg_node_t;
 
-void init_msg_queue(MSG_RCVD_CB msg_rcvd_cb) {
+struct list_head g_sync_msg_list;
+lock_t msg_list_lock;
+
+void init_msg_system(MSG_RCVD_CB msg_rcvd_cb) {
   g_msg_queue_id = get_msg_center_queue_id();
-
+  INIT_LIST_HEAD(&g_sync_msg_list);
+  init_lock(&msg_list_lock);
 
   create_thread(&g_receiver_thread_id,
                 NULL,
@@ -197,7 +198,31 @@ void init_msg_queue(MSG_RCVD_CB msg_rcvd_cb) {
 void destroy_msg_queue() {
   mq_close(g_msg_queue_id);
   cancel_thread(g_receiver_thread_id);
+}
+
+void enqueue_msg_to_list(message_t* msg) {
+  CHECK(NULL != msg);
+  lock(&msg_list_lock);
+//  msg_node_t* node = (msg_node_t*)malloc(sizeof(msg_node_t));
+//  CHECK(NULL != node);
+//  node->msg = msg;
+  list_add_tail(&g_sync_msg_list, &msg->list);
+  unlock(&msg_list_lock);
+}
+
+/*void is_sync_msg(message_t* msg) {
+  struct list_head* plist = NULL;
+  message_t* rcvd_msg = NULL;
+  list_for_each(plist, g_sync_msg_list) {
+    rcvd_msg = list_entry(g_sync_msg_list->list.next, message_t, list);
+    CHECK(NULL != msg);
+  }
+}
+*/
+
+void send_msg_sync(message_t* msg) {
 
 }
-#endif
+
+//#endif
 

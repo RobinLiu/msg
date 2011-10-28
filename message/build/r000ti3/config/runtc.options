@@ -1,0 +1,17 @@
+-r
+/home/robin/share/code/message/build/r000ti3
+--check-deadlock
+--check-potential-deadlock
+--check-datarace
+--terminate-on-deadlock
+--stack-depth=32
+--defer-memory-check
+--resolution=fine
+--no-check-stack-access
+--save-stack-on-first-access
+--save-stack-on-allocation
+--check-cross-thread-stack-access
+--no-emit-ctsa-diagnostics
+--appdebug=off
+--
+/home/robin/share/code/message/build/message

@@ -6,26 +6,38 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <errno.h>
+#include <string.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 
+#define FILTER_BUF_SIZE   256
 extern int8 g_min_log_level;
 extern pthread_mutex_t logging_lock;
 extern bool is_lock_init;
+extern bool g_filter_log_flag ;
+extern char g_log_filter[FILTER_BUF_SIZE];
 
 enum LOGSEVERITY { LOG_VERBOSE = 0,
-                   LOG_INFO,
-                   LOG_WARNING,
-                   LOG_ERROR,
-                   LOG_FATAL};
+                   LOG_INFO = 1,
+                   LOG_WARNING = 2,
+                   LOG_ERROR = 3,
+                   LOG_IMPORTANT = 3,
+                   LOG_FATAL = 4};
 
-int8  GetMinLogLevel(void);
-void SetMinLogLevel(int8 log_level);
+int8 get_min_log_level(void);
+void set_min_log_level(int8 log_level);
+void set_log_filter(char* log_filter);
+void clear_log_filter();
 
-#define LOG_IS_ON(severity) \
-  ((int8)(LOG_ ## severity) >= GetMinLogLevel())
+#define LOG_NOT_FILTERED(file_str) \
+    (g_filter_log_flag ? (NULL != strstr((char*)file_str, (char*)g_log_filter)) : !g_filter_log_flag)
+
+
+#define LOG_IS_ON(severity, file_str) \
+  (((int8)(LOG_ ## severity) >= get_min_log_level())) && LOG_NOT_FILTERED(file_str)
 
 #define ABORT abort()
 //#define ABORT exit(-1)
@@ -39,9 +51,9 @@ void SetMinLogLevel(int8 log_level);
 
 void get_time_str(int8* time_buf, int32 buf_len);
 
-//TODO: Lock may needed in multithread environment.
+
 #define LOG(severity, fmt, arg...)  do { \
-  if (LOG_IS_ON(severity)) { \
+  if (LOG_IS_ON(severity, __FILE__)) { \
     if(!is_lock_init) { \
       pthread_mutex_init(&logging_lock, NULL); \
       is_lock_init = TRUE; \

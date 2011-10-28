@@ -4,7 +4,10 @@
 #include <string.h>
 #include <pthread.h>
 
-int8 g_min_log_level = 2;
+
+int8 g_min_log_level = 3;
+bool g_filter_log_flag = FALSE;
+char g_log_filter[FILTER_BUF_SIZE] = {0};
 
 pthread_mutex_t logging_lock;
 
@@ -38,10 +41,21 @@ void get_time_str(int8* time_buf, int32 buf_len) {
 
 }
 
-int8  GetMinLogLevel(void) {
+int8  get_min_log_level(void) {
   return g_min_log_level;
 }
 
-void SetMinLogLevel(int8 log_level) {
+void set_min_log_level(int8 log_level) {
   g_min_log_level = log_level;
+}
+
+void set_log_filter(char* log_filter) {
+  g_filter_log_flag = TRUE;
+  memset(g_log_filter, 0, sizeof(g_log_filter));
+  strncpy(g_log_filter, log_filter, (sizeof(g_log_filter) - 1));
+  g_log_filter[FILTER_BUF_SIZE -1] = '\0';
+}
+
+void clear_log_filter() {
+  g_filter_log_flag = FALSE;
 }

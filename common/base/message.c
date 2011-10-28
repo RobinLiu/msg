@@ -79,6 +79,7 @@ void fill_msg_header(uint8         des_group_id,
                      uint16        des_app_id,
                      uint8         range,
                      int8          msg_priority,
+                     uint32        msg_id,
                      message_t*    msg) {
   CHECK(NULL != msg);
   CHECK(NULL != msg->header);
@@ -86,6 +87,7 @@ void fill_msg_header(uint8         des_group_id,
   header->rcver.group_id = des_group_id;
   header->rcver.app_id = des_app_id;
   header->rcver.role = range;
+  header->msg_id = msg_id;
   header->priority = msg_priority;
 
   //TODO:fill information about self
@@ -94,6 +96,13 @@ void fill_msg_header(uint8         des_group_id,
   header->snder.role     = get_self_role();
 }
 
+void fill_msg_body(void* msg_content, uint32 msg_len, message_t* msg) {
+  CHECK(NULL != msg);
+  CHECK(NULL != msg->header);
+  CHECK(msg->header->msg_len >= msg_len);
+  memcpy((void*)msg->body, msg_content, msg_len);
+  msg->header->msg_len = msg_len;
+}
 
 void print_msg_header(message_t* msg) {
   msg_header_t* mh = msg->header;

@@ -1,0 +1,16 @@
+
+=== Start: [2011/09/13 16:13:42] === 
+Threading error analysis: started
+Result file: [/home/robin/share/code/message/build/r000ti3/r000ti3.inspxe] 
+Loaded module: /home/robin/share/code/message/build/message. 
+Loaded module: /lib/ld-linux.so.2. 
+Loaded module: /lib/libpthread.so.0. 
+Loaded module: /usr/lib/libstdc++.so.6. 
+Loaded module: /lib/librt.so.1. 
+Loaded module: /lib/libc.so.6. 
+Loaded module: /lib/libm.so.6. 
+Loaded module: /lib/libgcc_s.so.1. 
+Application exit code: [137] 
+Result file: [/home/robin/share/code/message/build/r000ti3/r000ti3.inspxe] 
+Threading error analysis: canceled by user
+=== End: [2011/09/13 16:15:38] === 

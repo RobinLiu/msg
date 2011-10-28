@@ -54,6 +54,8 @@ int start_timer(msg_timer_t* timer);
 int renew_timer(msg_timer_t* timer, uint32 timeout_time);
 
 bool is_timer_started(msg_timer_t* timer);
+
+int timer_will_expire_in(msg_timer_t* timer);
 //void setup_timer(msg_timer_t* timer, TIMEOUT_FUNC func, void* data, uint32 timeout_time);
 //void start_timer(msg_timer_t* timer);
 //void stop_timer(msg_timer_t* timer);
