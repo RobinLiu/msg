@@ -61,25 +61,40 @@ int main(int argc, char** argv) {
     printf("Usage: %s dest_group_id  dest_app_id  package_num\n", argv[0]);
     exit(0);
   }
+  msg_client_t msg_client;
   group_id = (uint8)atoi(argv[1]);
   app_id = (uint16)atoi(argv[2]);
   init_sys_info();
-  init_msg_system(&on_msg_received);
-  pthread_t sender_id;
-  pthread_create(&sender_id, NULL, &sender_thread, NULL);
-
-  char key;
-  while (EOF != (key = getchar())) {
-    switch(key) {
-      case 'q':
-        break;
-      case 's':
-        pthread_cancel(sender_id);
-        pthread_join(sender_id, NULL);
-        break;
+//  init_msg_system(&on_msg_received);
+  init_msg_system(&msg_client);
+//  pthread_t sender_id;
+//  pthread_create(&sender_id, NULL, &sender_thread, NULL);
+  message_t* msg = NULL;
+  int msg_id = 1;
+  char rsp_buf[4];
+  int ret = 123;
+  while(1) {
+    if(0 == receive_msg(&msg_client, &msg)) {
+      continue;
     }
-    LOG(IMPORTANT, "Number of msg send: %d, received %d", send_msg_num, recvd_msg_num);
+
+    if(msg->header->msg_id == 1) {
+      memcpy(rsp_buf, &ret, sizeof(int));
+      send_rsp_msg(msg, msg_id, rsp_buf, sizeof(rsp_buf));
+    }
   }
+//  char key;
+//  while (EOF != (key = getchar())) {
+//    switch(key) {
+//      case 'q':
+//        break;
+//      case 's':
+//        pthread_cancel(sender_id);
+//        pthread_join(sender_id, NULL);
+//        break;
+//    }
+//    LOG(IMPORTANT, "Number of msg send: %d, received %d", send_msg_num, recvd_msg_num);
+//  }
 
   LOG(IMPORTANT, "Number of msg send: %d, received %d", send_msg_num, recvd_msg_num);
 //  destroy_msg_queue();

@@ -362,7 +362,6 @@ int timer_heap_schedule(timer_heap_t* ht, timer_entry* entry, time_val* delay) {
 }
 
 
-
 int timer_heap_cancel(timer_heap_t* ht, timer_entry* entry) {
   if (NULL == ht || NULL == entry) {
     return -1;

@@ -21,13 +21,17 @@ typedef uint8               bool;
 
 typedef int32               error_no_t;
 
-#define RANGE_STANDBY     1
-#define RANGE_ACTIVE      2
-#define RANGE_BOTH        3
+#define RANGE_STANDBY       1
+#define RANGE_ACTIVE        2
+#define RANGE_BOTH          3
 
 #define   BUFF_MAGIC_HEADER     0xbeafdead
 #define   BUFF_MAGIC_TAIL       0xdaedfaeb
 
+#define MSG_TYPE_SYNC_REQ       1
+#define MSG_TYPE_SYNC_RSP       2
+#define MSG_TYPE_ASYNC_REQ      3
+#define MSG_TYPE_ASYNC_RSP      4
 
 typedef struct {
   uint8   group_id;
@@ -49,6 +53,7 @@ typedef struct  {
 #endif
   msg_receiver_t rcver;
   msg_sender_t   snder;
+  uint8          msg_type;
   int8           priority;
   uint32         msg_len;
   uint32         msg_seq;
