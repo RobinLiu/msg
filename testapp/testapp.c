@@ -1,4 +1,5 @@
-#include "common/base/msg_queue.h"
+//#include "common/base/msg_queue.h"
+#include "common/base/msg_client.h"
 #include "common/base/message.h"
 #include "common/include/common.h"
 #include "message/mock_API/app_info.h"

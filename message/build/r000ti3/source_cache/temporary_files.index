@@ -1,4 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<cache_index>
-  <entity original_file="/home/robin/share/code/message/build/../src/msg_link.c" cached_file="cache_3c911aea3ac8f972ceb212b6b661b4a3_msg_link.c" md5="3c911aea3ac8f972ceb212b6b661b4a3"/>
-<entity original_file="/home/robin/share/code/common/base/timerheap.c" cached_file="cache_e12cfe84096024fbfd6b69b27e5abc17_timerheap.c" md5="e12cfe84096024fbfd6b69b27e5abc17"/><entity original_file="/home/robin/share/code/common/base/lock.c" cached_file="cache_09ca67cc5378e609f30a872bb746c799_lock.c" md5="09ca67cc5378e609f30a872bb746c799"/><entity original_file="/home/robin/share/code/common/base/thread.c" cached_file="cache_18c7187ddd57619edd6f8a5e7513c238_thread.c" md5="18c7187ddd57619edd6f8a5e7513c238"/></cache_index>

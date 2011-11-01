@@ -32,6 +32,7 @@ void _lock(lock_t* locker, char* file, int line) {
 void _unlock(lock_t* locker, char* file, int line) {
   (void)file;
   (void)line;
+  LOG(INFO, "Begin unlock %p in thread %x at[%s:%d]", &locker->locker, (uint32)pthread_self(), file, line);
   int32 ret = pthread_mutex_unlock(&locker->locker);
   CHECK(0 == ret);
 }
