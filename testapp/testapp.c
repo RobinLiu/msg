@@ -77,9 +77,12 @@ int main(int argc, char** argv) {
     if(0 == receive_msg(&msg_client, &msg)) {
       continue;
     }
-
+    LOG(INFO, "Received a msg in app id is %d, response with ack",
+        msg->header->msg_id);
+    print_msg_header(msg);
     if(msg->header->msg_id == 1) {
       memcpy(rsp_buf, &ret, sizeof(int));
+      LOG(INFO, "Begin to send rsp msg...");
       send_rsp_msg(msg, msg_id, rsp_buf, sizeof(rsp_buf));
     }
   }

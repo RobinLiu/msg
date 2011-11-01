@@ -67,13 +67,12 @@ int main(int argc, char** argv) {
   init_sys_info();
   init_msg_system(&msg_client);
 
-
-
-
   message_t* msg = NULL;
   uint32 msglen = 2000;
   msg = allocate_msg_buff(msglen);
   fill_msg_header(group_id, app_id, RANGE_ACTIVE, 4, 1, msg);
+  msg->header->msg_type = MSG_TYPE_SYNC_REQ;
+  print_msg_header(msg);
   int ret = send_sync_msg(msg, 10000, &msg_client);
   LOG(INFO,"sync msg result is %d", ret);
   return 0;

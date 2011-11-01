@@ -24,7 +24,7 @@ void msg_main() {
   uint8 msg_buf[MSG_QUEUE_BUF_SIZE] = {0};
   message_t* msg = NULL;
   unsigned msg_priority;
-  uint32 msg_seq = 0;
+//  uint32 msg_seq = 0;
   while(1) {
     ssize_t ret = msg_queue_receive(in_msg_queue,
                                    (void*)msg_buf,
@@ -42,7 +42,7 @@ void msg_main() {
     msg = allocate_msg_buff(mh.msg_len);
     CHECK(NULL != msg);
     memcpy(msg->buf_head, msg_buf, ret);
-    msg->header->msg_seq = msg_seq++;
+//    msg->header->msg_seq = msg_seq++;
 //    print_msg(msg);
     send_msg_to_msg_router(msg);
 

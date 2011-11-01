@@ -107,8 +107,11 @@ void fill_msg_body(void* msg_content, uint32 msg_len, message_t* msg) {
 void print_msg_header(message_t* msg) {
   msg_header_t* mh = msg->header;
   CHECK(NULL != mh);
-  printf("Sender: group %d, app %d, range %d\n", mh->rcver.group_id, mh->rcver.app_id, mh->rcver.role);
-  printf("Receiver: group %d, app %d, range %d\n", mh->snder.group_id, mh->snder.app_id, mh->snder.role);
+  printf("Sender: group %d, app %d, range %d\n",
+      mh->snder.group_id, mh->snder.app_id, mh->snder.role);
+  printf("Receiver: group %d, app %d, range %d\n",
+      mh->rcver.group_id, mh->rcver.app_id, mh->rcver.role);
+  printf("Msg_type: %d\n", mh->msg_type);
 }
 
 void print_msg(message_t* msg) {

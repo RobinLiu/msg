@@ -64,13 +64,13 @@ uint8 get_app_location(msg_receiver_t app, node_id_t* node_list) {
       if (cluster_info.node_info[i].group_info[j].group_id == app.group_id) {
         switch(app.role) {
           case RANGE_STANDBY:
-            if (cluster_info.node_info[i].group_info[j].role == 0) {
+            if (cluster_info.node_info[i].group_info[j].role == RANGE_STANDBY) {
               node_list[k++] = cluster_info.node_info[i].node_id;
               LOG(INFO, "Find group %d in node %d", app.group_id, node_list[k-1]);
             }
             break;
           case RANGE_ACTIVE:
-            if (cluster_info.node_info[i].group_info[j].role == 1) {
+            if (cluster_info.node_info[i].group_info[j].role == RANGE_ACTIVE) {
               node_list[k++] = cluster_info.node_info[i].node_id;
 //              LOG(INFO, "Find group %d in node %d", app.group_id, node_list[k-1]);
             }
@@ -133,7 +133,7 @@ void init_group_info(group_info_t* group) {
   static uint8 group_id = 0;
   static uint16 app_id = 0;
   group->group_id = group_id++;
-  group->role = 1;
+  group->role = RANGE_ACTIVE;
   int32 i = 0;
   for(; i < MAX_APP_NUM_IN_GROUP ; ++i) {
     group->app_list[i] = app_id++;
@@ -153,7 +153,7 @@ void init_node_info(node_info_t* node, int32 index) {
     memcpy(node->group_info, (node-1)->group_info, sizeof(node->group_info));
     uint32 k = 0;
     for(k = 0; k < MAX_GROUP_NUM_IN_NODE; ++k) {
-      node->group_info[k].role = 0;
+      node->group_info[k].role = RANGE_STANDBY;
     }
   } else {
     for(j = 0; j < MAX_GROUP_NUM_IN_NODE; ++j) {

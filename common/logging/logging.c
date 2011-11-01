@@ -5,7 +5,7 @@
 #include <pthread.h>
 
 
-int8 g_min_log_level = 3;
+int8 g_min_log_level = 0;
 bool g_filter_log_flag = FALSE;
 char g_log_filter[FILTER_BUF_SIZE] = {0};
 
