@@ -57,6 +57,7 @@ typedef struct  {
   int8           priority;
   uint32         msg_len;
   uint32         msg_seq;
+  uint32         ack_seq;
   uint32         msg_id;
 } msg_header_t;
 

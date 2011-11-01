@@ -35,13 +35,12 @@ int is_correct_rsp_msg(message_t* msg_req, message_t* msg_rsp) {
       msg_req->header->snder.app_id == msg_rsp->header->rcver.app_id;
   int is_same_receiver = msg_req->header->rcver.group_id == msg_rsp->header->snder.group_id &&
       msg_req->header->rcver.app_id == msg_rsp->header->snder.app_id;
-  int is_same_msg_seq = (msg_req->header->msg_seq == msg_rsp->header->msg_seq);
+  int is_same_msg_seq = (msg_req->header->msg_seq == msg_rsp->header->ack_seq);
   LOG(INFO, "is_same_sender %d, is_same_receiver %d, is_same_msg_seq %d",
       is_same_sender, is_same_receiver, is_same_msg_seq);
-  LOG(INFO, "msg_req->header->msg_seq %d, msg_rsp->header->msg_seq %d",
-      msg_req->header->msg_seq, msg_rsp->header->msg_seq);
+  LOG(INFO, "msg_req->header->msg_seq %d, msg_rsp->header->ack_seq %d",
+      msg_req->header->msg_seq, msg_rsp->header->ack_seq);
   //TODO:
-//  is_same_msg_seq = 1;
   return (is_same_sender && is_same_receiver && is_same_msg_seq);
 }
 
@@ -109,7 +108,7 @@ int get_first_msg(msg_client_t* msg_client, message_t** msg) {
   message_t* receive_msg = NULL;
   lock(&msg_client->async_msg_list_lock);
   bool is_empty = list_empty(&msg_client->aync_msg_list);
-  LOG(INFO, "is_empty %d", is_empty);
+//  LOG(INFO, "is_empty %d", is_empty);
   if(!is_empty) {
     receive_msg = list_entry(msg_client->aync_msg_list.next, message_t, list);
     CHECK(NULL != receive_msg);
@@ -173,10 +172,12 @@ int wait_for_rsp(int time_out, sync_msg_pair_t* sync_msg_pair) {
   return ret;
 }
 
+
 uint32 get_msg_seq(void) {
   //TODO: add lock
   return g_msg_seq++;
 }
+
 
 error_no_t send_msg(message_t* msg) {
   msg_queue_id_t msg_queue_id = get_queue_id();
@@ -241,11 +242,12 @@ int send_sync_msg(message_t* msg, int time_out, msg_client_t* msg_client) {
   return remote_rsp;
 }
 
+
 error_no_t send_rsp_msg(message_t* msg, int msg_id, void* rsp_buf, int buf_size) {
   CHECK(NULL != msg);
   CHECK(NULL != rsp_buf);
   CHECK(buf_size > 0);
-  LOG(INFO, "in send_rsp_msg");
+//  LOG(INFO, "in send_rsp_msg");
   message_t* rsp_msg =  allocate_msg_buff(buf_size);
   CHECK(NULL != rsp_msg);
   memcpy(&rsp_msg->header->rcver, &msg->header->snder, sizeof(msg_receiver_t));
@@ -257,9 +259,10 @@ error_no_t send_rsp_msg(message_t* msg, int msg_id, void* rsp_buf, int buf_size)
                   rsp_msg);
   //TODO:
   rsp_msg->header->msg_type = MSG_TYPE_SYNC_RSP;
+  rsp_msg->header->ack_seq = msg->header->msg_seq;
   memcpy(rsp_msg->body, rsp_buf, buf_size);
-  LOG(INFO, "RSP msg sent");
-  print_msg_header(rsp_msg);
+//  LOG(INFO, "RSP msg sent");
+//  print_msg_header(rsp_msg);
   return send_msg(rsp_msg);
 }
 

@@ -89,6 +89,8 @@ void fill_msg_header(uint8         des_group_id,
   header->rcver.role = range;
   header->msg_id = msg_id;
   header->priority = msg_priority;
+  header->msg_seq = 0;
+  header->ack_seq = 0;
 
   //TODO:fill information about self
   header->snder.group_id = get_self_group_id();
