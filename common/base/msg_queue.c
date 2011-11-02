@@ -175,7 +175,7 @@ void* message_receiver_thread(void* arg) {
       put_msg_to_async_queue(msg);
       break;
     default:
-      LOG(INFO, "Receive a unknown msg");
+      LOG(INFO, "Receive an unknown msg");
       break;
     }
   }

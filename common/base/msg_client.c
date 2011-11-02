@@ -79,7 +79,6 @@ void put_rsp_msg_to_sync_queue(message_t* msg) {
   bool bReqfound = FALSE;
   lock(&msg_client->sync_msg_list_lock);
   list_for_each(plist, &msg_client->sync_msg_pair_list) {
-    LOG(INFO, "checking...");
     iter = list_entry(plist, sync_msg_pair_t, list);
     CHECK(NULL != iter);
     if (is_correct_rsp_msg(iter->msg_req, msg)) {
@@ -205,7 +204,7 @@ int wait_for_rsp(int time_out, sync_msg_pair_t* sync_msg_pair) {
   return ret;
 }
 
-error_no_t send_msg_msg_queue(message_t* msg) {
+error_no_t send_msg_to_msg_queue(message_t* msg) {
   msg_queue_id_t msg_queue_id = get_queue_id();
   return msg_queue_send(msg_queue_id,
                         (void*)msg->buf_head,
@@ -235,7 +234,7 @@ error_no_t send_msg(uint8  dst_grp_id,
 
   memcpy((void*)msg->body, msg_content, msg_len);
 
-  error_no_t ret = send_msg_msg_queue(msg);
+  error_no_t ret = send_msg_to_msg_queue(msg);
   free_msg_buff(&msg);
   return ret;
 }
@@ -267,7 +266,7 @@ int send_sync_msg_by_client(msg_client_t* msg_client,
   }
 
   enqueue_msg_to_list(sync_msg_pair, msg_client);
-  if (0 != send_msg_msg_queue(msg)) {
+  if (0 != send_msg_to_msg_queue(msg)) {
     LOG(WARNING, "Send message failed");
     lock(&msg_client->sync_msg_list_lock);
     list_del(&sync_msg_pair->list);
@@ -279,7 +278,7 @@ int send_sync_msg_by_client(msg_client_t* msg_client,
     return SEND_MSG_TO_MSG_QUEUE_FAILED_EC;
   }
 
-  LOG(INFO, "Send msg to mq done");
+//  LOG(INFO, "Send msg to mq done");
   wait_for_rsp(time_out, sync_msg_pair);
 
   if(NULL != sync_msg_pair->msg_rsp) {
@@ -342,7 +341,6 @@ error_no_t send_sync_msg_rsp(message_t* msg, void* rsp_buf, int buf_size) {
   CHECK(buf_size > 0);
   message_t* rsp_msg =  allocate_msg_buff(buf_size);
   CHECK(NULL != rsp_msg);
-  memcpy(&rsp_msg->header->rcver, &msg->header->snder, sizeof(msg_receiver_t));
   fill_msg_header(msg->header->snder.group_id,
                   msg->header->snder.app_id,
                   msg->header->snder.role,
@@ -353,7 +351,7 @@ error_no_t send_sync_msg_rsp(message_t* msg, void* rsp_buf, int buf_size) {
   rsp_msg->header->ack_seq = msg->header->msg_seq;
   memcpy(rsp_msg->body, rsp_buf, buf_size);
 //  print_msg_header(rsp_msg);
-  error_no_t ret = send_msg_msg_queue(rsp_msg);
+  error_no_t ret = send_msg_to_msg_queue(rsp_msg);
   free_msg_buff(&rsp_msg);
   return ret;
 }
