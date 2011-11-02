@@ -12,6 +12,8 @@
 //#include "message/src/message_router.h"
 #include <string.h>
 
+uint32 g_msg_seq = 0;
+
 void check_buff_magic_num(message_t* msg) {
   CHECK(NULL != msg);
   CHECK(NULL != msg->header);
@@ -79,6 +81,7 @@ void fill_msg_header(uint8         des_group_id,
                      uint16        des_app_id,
                      uint8         range,
                      int8          msg_priority,
+                     uint8         msg_type,
                      uint32        msg_id,
                      message_t*    msg) {
   CHECK(NULL != msg);
@@ -88,8 +91,9 @@ void fill_msg_header(uint8         des_group_id,
   header->rcver.app_id = des_app_id;
   header->rcver.role = range;
   header->msg_id = msg_id;
+  header->msg_type = msg_type;
   header->priority = msg_priority;
-  header->msg_seq = 0;
+  header->msg_seq = g_msg_seq++;
   header->ack_seq = 0;
 
   //TODO:fill information about self

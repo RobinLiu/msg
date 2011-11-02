@@ -30,8 +30,7 @@ typedef int32               error_no_t;
 
 #define MSG_TYPE_SYNC_REQ       1
 #define MSG_TYPE_SYNC_RSP       2
-#define MSG_TYPE_ASYNC_REQ      3
-#define MSG_TYPE_ASYNC_RSP      4
+#define MSG_TYPE_ASYNC_MSG      3
 
 typedef struct {
   uint8   group_id;

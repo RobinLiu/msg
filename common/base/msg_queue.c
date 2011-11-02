@@ -21,9 +21,9 @@ msg_queue_id_t g_msg_queue_id = -1;
 thread_id_t g_receiver_thread_id = 0;
 
 
-extern void put_rsp_msg_to_sync_queue(message_t* msg, msg_client_t* msg_client);
+extern void put_rsp_msg_to_sync_queue(message_t* msg);
 
-extern void put_msg_to_async_queue(message_t* msg, msg_client_t* msg_client);
+extern void put_msg_to_async_queue(message_t* msg);
 
 
 msg_queue_id_t get_queue_id() {
@@ -145,7 +145,7 @@ void* message_receiver_thread(void* arg) {
   CHECK(msg_queue_id != -1);
   (void)arg;
 //  MSG_RCVD_CB msg_rcvd_cb = (MSG_RCVD_CB)arg;
-  msg_client_t* msg_client = (msg_client_t*)arg;
+//  msg_client_t* msg_client = (msg_client_t*)arg;
   char msg_buf[MSG_QUEUE_BUF_SIZE] = {0};
   unsigned msg_prio = 0;
   while (1) {
@@ -163,17 +163,16 @@ void* message_receiver_thread(void* arg) {
     memcpy(&mh, msg_buf, sizeof(mh));
     message_t* msg = allocate_msg_buff(mh.msg_len);
     memcpy(msg->buf_head, msg_buf, ret);
-    print_msg_header(msg);
+//    print_msg_header(msg);
     switch(mh.msg_type) {
     case MSG_TYPE_SYNC_RSP:
 //      LOG(INFO, "Receive a sync req msg");
-      put_rsp_msg_to_sync_queue(msg, msg_client);
+      put_rsp_msg_to_sync_queue(msg);
       break;
     case MSG_TYPE_SYNC_REQ:
-    case MSG_TYPE_ASYNC_REQ:
-    case MSG_TYPE_ASYNC_RSP:
+    case MSG_TYPE_ASYNC_MSG:
       LOG(INFO, "Receive a normal msg");
-      put_msg_to_async_queue(msg, msg_client);
+      put_msg_to_async_queue(msg);
       break;
     default:
       LOG(INFO, "Receive a unknown msg");
