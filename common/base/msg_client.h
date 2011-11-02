@@ -11,15 +11,14 @@ typedef struct msg_client_t {
   int fd[2]; //pipe used for notification between threads.
 } msg_client_t;
 
-void init_msg_system(msg_client_t* msg_client);
+void init_msg_system();
 
 error_no_t send_msg(message_t* msg);
 
-error_no_t send_sync_msg(message_t* msg, int time_out, msg_client_t* msg_client);
+void receive_msg(message_t** msg);
 
-int receive_msg(msg_client_t* msg_client, message_t** msg);
+error_no_t send_sync_msg(message_t* msg, int time_out, void* rsp_buf, uint32 rsp_buf_size);
 
-error_no_t send_rsp_msg(message_t* msg, int msg_id, void* rsp_buf, int buf_size);
-
+error_no_t send_sync_rsp_msg(message_t* msg, int msg_id, void* rsp_buf, int rsp_buf_size);
 
 #endif

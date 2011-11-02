@@ -6,18 +6,18 @@
 #include <poll.h>
 
 uint32 g_msg_seq = 0;
+msg_client_t g_msg_client;
 
-typedef struct sync_msg_pair_t{
+typedef struct sync_msg_pair {
   struct list_head list;
   message_t* msg_req;
   message_t* msg_rsp;
   int fd[2];
 } sync_msg_pair_t;
 
-
-void init_msg_system(msg_client_t* msg_client) {
+void init_msg_client(msg_client_t* msg_client) {
   CHECK(NULL != msg_client);
-
+  memset(msg_client, 0, sizeof(msg_client_t));
   INIT_LIST_HEAD(&msg_client->sync_msg_pair_list);
   INIT_LIST_HEAD(&msg_client->aync_msg_list);
   init_lock(&msg_client->sync_msg_list_lock);
@@ -28,21 +28,25 @@ void init_msg_system(msg_client_t* msg_client) {
 }
 
 
+void init_msg_system() {
+   return init_msg_client(&g_msg_client);
+}
+
+
 int is_correct_rsp_msg(message_t* msg_req, message_t* msg_rsp) {
   CHECK(NULL != msg_req);
   CHECK(NULL != msg_rsp);
   int is_same_sender = msg_req->header->snder.group_id == msg_rsp->header->rcver.group_id &&
       msg_req->header->snder.app_id == msg_rsp->header->rcver.app_id;
+
   int is_same_receiver = msg_req->header->rcver.group_id == msg_rsp->header->snder.group_id &&
       msg_req->header->rcver.app_id == msg_rsp->header->snder.app_id;
+
   int is_same_msg_seq = (msg_req->header->msg_seq == msg_rsp->header->ack_seq);
-  LOG(INFO, "is_same_sender %d, is_same_receiver %d, is_same_msg_seq %d",
-      is_same_sender, is_same_receiver, is_same_msg_seq);
-  LOG(INFO, "msg_req->header->msg_seq %d, msg_rsp->header->ack_seq %d",
-      msg_req->header->msg_seq, msg_rsp->header->ack_seq);
-  //TODO:
+
   return (is_same_sender && is_same_receiver && is_same_msg_seq);
 }
+
 
 void notify_sync_msg_caller(sync_msg_pair_t* sync_msg_pair) {
   CHECK(NULL != sync_msg_pair);
@@ -105,22 +109,22 @@ int get_first_msg(msg_client_t* msg_client, message_t** msg) {
   CHECK(NULL != msg);
 
   int num_of_msg_got = 0;
-  message_t* receive_msg = NULL;
+  message_t* received_msg = NULL;
   lock(&msg_client->async_msg_list_lock);
   bool is_empty = list_empty(&msg_client->aync_msg_list);
 //  LOG(INFO, "is_empty %d", is_empty);
   if(!is_empty) {
-    receive_msg = list_entry(msg_client->aync_msg_list.next, message_t, list);
-    CHECK(NULL != receive_msg);
-    list_del(&receive_msg->list);
-    *msg = receive_msg;
+    received_msg = list_entry(msg_client->aync_msg_list.next, message_t, list);
+    CHECK(NULL != received_msg);
+    list_del(&received_msg->list);
+    *msg = received_msg;
     num_of_msg_got = 1;
   }
   unlock(&msg_client->async_msg_list_lock);
   return num_of_msg_got;
 }
 
-int receive_msg(msg_client_t* msg_client, message_t** msg) {
+int receive_msg_by_client(msg_client_t* msg_client, message_t** msg) {
   CHECK(NULL != msg_client);
   CHECK(NULL != msg);
   int num_of_msg_received = 0;
@@ -146,6 +150,13 @@ int receive_msg(msg_client_t* msg_client, message_t** msg) {
 
   return num_of_msg_received;
 }
+
+void receive_msg(message_t** msg) {
+  while(0 == receive_msg_by_client(&g_msg_client, msg)) {
+    continue;
+  }
+}
+
 
 void enqueue_msg_to_list(sync_msg_pair_t* sync_msg_pair, msg_client_t* msg_client) {
   CHECK(NULL != sync_msg_pair);
@@ -190,8 +201,19 @@ error_no_t send_msg(message_t* msg) {
 }
 
 
-int send_sync_msg(message_t* msg, int time_out, msg_client_t* msg_client) {
+int send_sync_msg_by_client(msg_client_t* msg_client,
+                            message_t* msg,
+                            int time_out,
+                            void* rsp_buf,
+                            uint32 rsp_buf_size) {
 
+  CHECK(NULL != msg_client);
+  CHECK(NULL != msg);
+  CHECK(NULL != rsp_buf);
+  CHECK(time_out > 0);
+  CHECK(rsp_buf_size > 0);
+
+  int ret = -1;
   sync_msg_pair_t* sync_msg_pair = (sync_msg_pair_t*)malloc(sizeof(sync_msg_pair_t));
   CHECK(NULL != sync_msg_pair);
   sync_msg_pair->msg_req  = msg;
@@ -218,16 +240,15 @@ int send_sync_msg(message_t* msg, int time_out, msg_client_t* msg_client) {
   }
 
   LOG(INFO, "Send msg to mq done");
-
   wait_for_rsp(time_out, sync_msg_pair);
 
-  int remote_rsp = -1;
   if(NULL != sync_msg_pair->msg_rsp) {
-    memcpy(&remote_rsp, sync_msg_pair->msg_rsp->body, sizeof(int));
+    uint32 buf_size = (rsp_buf_size > sync_msg_pair->msg_rsp->header->msg_len)? sync_msg_pair->msg_rsp->header->msg_len : rsp_buf_size;
+    memcpy(rsp_buf, sync_msg_pair->msg_rsp->body, buf_size);
+    ret = 0;
   }
-  LOG(INFO, "Response from remote is %d", remote_rsp);
 
-  //destroy the message node;
+  //destroy the message pair;
   lock(&msg_client->sync_msg_list_lock);
   list_del(&sync_msg_pair->list);
   free_msg_buff(&sync_msg_pair->msg_req);
@@ -239,15 +260,17 @@ int send_sync_msg(message_t* msg, int time_out, msg_client_t* msg_client) {
   free(sync_msg_pair);
   unlock(&msg_client->sync_msg_list_lock);
 
-  return remote_rsp;
+  return ret;
 }
 
+int send_sync_msg(message_t* msg, int time_out, void* rsp_buf, uint32 rsp_buf_size) {
+  return send_sync_msg_by_client(&g_msg_client, msg, time_out, rsp_buf, rsp_buf_size);
+}
 
-error_no_t send_rsp_msg(message_t* msg, int msg_id, void* rsp_buf, int buf_size) {
+error_no_t send_sync_rsp_msg(message_t* msg, int msg_id, void* rsp_buf, int buf_size) {
   CHECK(NULL != msg);
   CHECK(NULL != rsp_buf);
   CHECK(buf_size > 0);
-//  LOG(INFO, "in send_rsp_msg");
   message_t* rsp_msg =  allocate_msg_buff(buf_size);
   CHECK(NULL != rsp_msg);
   memcpy(&rsp_msg->header->rcver, &msg->header->snder, sizeof(msg_receiver_t));
@@ -257,11 +280,9 @@ error_no_t send_rsp_msg(message_t* msg, int msg_id, void* rsp_buf, int buf_size)
                   msg->header->priority,
                   msg_id,
                   rsp_msg);
-  //TODO:
   rsp_msg->header->msg_type = MSG_TYPE_SYNC_RSP;
   rsp_msg->header->ack_seq = msg->header->msg_seq;
   memcpy(rsp_msg->body, rsp_buf, buf_size);
-//  LOG(INFO, "RSP msg sent");
 //  print_msg_header(rsp_msg);
   return send_msg(rsp_msg);
 }
