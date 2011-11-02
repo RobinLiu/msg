@@ -20,6 +20,7 @@ int main() {
     case MSG_ID_TEST_MSG:
       ret++;
       LOG(INFO, "Begin to send rsp msg...");
+//      msg->header->msg_seq = 0;
       send_sync_msg_rsp(msg, &ret, sizeof(ret));
       break;
     default:

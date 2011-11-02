@@ -16,14 +16,14 @@ void create_thread(thread_id_t* thread_id,
   size_t stack_size = 0;
   pthread_attr_init(&attr);
   pthread_attr_getstacksize(&attr, &stack_size);
-  LOG(ERROR, "Default stack size is %zd bytes", stack_size);
+  LOG(IMPORTANT, "Default stack size is %zd bytes", stack_size);
   stack_size = 16*1024*1024;
   pthread_attr_setstacksize(&attr, stack_size);
 
   int32 ret = 0;
   ret =  pthread_create(thread_id, /*thread_attr*/&attr, func, arg);
   pthread_attr_getstacksize(&attr, &stack_size);
-  LOG(ERROR, "after set stack size is %zd bytes", stack_size);
+  LOG(IMPORTANT, "after set stack size is %zd bytes", stack_size);
   pthread_attr_destroy(&attr);
   CHECK(0 == ret);
 }

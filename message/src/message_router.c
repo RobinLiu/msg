@@ -53,6 +53,7 @@ error_no_t router_receive_msg(message_t* msg) {
       //this is a message to myself.
     LOG(INFO, "Control message for router is received...");
      process_msg(msg);
+     free_msg_buff(&msg);
      return SUCCESS_EC;
   }
   msg_queue_id_t msg_queue_id = get_app_queue_id(msg->header->rcver.group_id,
@@ -61,6 +62,7 @@ error_no_t router_receive_msg(message_t* msg) {
   if (0 != send_msg_to_queue(msg_queue_id, msg, RETRY_TIMES)) {
     ++num_of_droped_msg;
   }
+  free_msg_buff(&msg);
 //  LOG(ERROR, "received %d, droped %d", ++num_of_msg, num_of_droped_msg);
 //  if (100000 == num_of_msg) {
 //    exit(0);

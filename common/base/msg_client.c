@@ -235,7 +235,9 @@ error_no_t send_msg(uint8  dst_grp_id,
 
   memcpy((void*)msg->body, msg_content, msg_len);
 
-  return send_msg_msg_queue(msg);
+  error_no_t ret = send_msg_msg_queue(msg);
+  free_msg_buff(&msg);
+  return ret;
 }
 
 
@@ -351,6 +353,8 @@ error_no_t send_sync_msg_rsp(message_t* msg, void* rsp_buf, int buf_size) {
   rsp_msg->header->ack_seq = msg->header->msg_seq;
   memcpy(rsp_msg->body, rsp_buf, buf_size);
 //  print_msg_header(rsp_msg);
-  return send_msg_msg_queue(rsp_msg);
+  error_no_t ret = send_msg_msg_queue(rsp_msg);
+  free_msg_buff(&rsp_msg);
+  return ret;
 }
 
