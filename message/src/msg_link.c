@@ -230,7 +230,7 @@ static void prepare_pkt(msg_frag_t* msg_frag, node_id_t peer) {
   uint8* data_ptr = msg_frag->data;
 
   /*ethernet header contains following field:
-   * |dest mac  | src mac|optinal vlan tag| ether type|
+   * |dest mac  | src mac|optional vlan tag| ether type|
    * |6(octets) |6       |4               | 2         |
    * */
   memcpy(data_ptr, dest_mac, MAC_ADDR_LEN);
