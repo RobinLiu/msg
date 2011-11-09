@@ -8,6 +8,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <signal.h>
 
 /** Maximum value for signed 32-bit integer. */
 #define MAXINT32  0x7FFFFFFFL
@@ -90,10 +91,12 @@ void gettickcount(time_val* expires) {
 }
 
 void lock_timer_heap(timer_heap_t* ht) {
+  CHECK(NULL != ht);
   lock(&ht->timer_lock);
 }
 
 void unlock_timer_heap(timer_heap_t* ht) {
+  CHECK(NULL != ht);
   unlock(&ht->timer_lock);
 }
 
@@ -262,7 +265,7 @@ int timer_heap_create(int size, timer_heap_t** p_heap) {
   ht->timer_ids_freelist = 1;
 
   //init lock
-  pthread_mutex_init(&ht->timer_lock, NULL);
+  init_lock(&ht->timer_lock);
   if (0 != pipe(ht->fd)) {
     LOG(ERROR, "pipe failed: %s", strerror(errno));
     free(ht);
@@ -343,7 +346,7 @@ int timer_heap_schedule(timer_heap_t* ht, timer_entry* entry, time_val* delay) {
   gettickcount(&expires);
   TIME_VAL_ADD(expires, *delay);
 
-  lock_timer_heap(ht);
+  //lock_timer_heap(ht);
   int was_empty = ht->cur_size == 0;
   int is_timer_less = (ht->cur_size > 0
       && TIME_VAL_LT(entry->timer_value, ht->heap[0]->timer_value));
@@ -353,19 +356,21 @@ int timer_heap_schedule(timer_heap_t* ht, timer_entry* entry, time_val* delay) {
     LOG(INFO, "Notify thread that a new timer is added ...");
     CHECK(1 == write(ht->fd[1], "0", 1));
   }
-  unlock_timer_heap(ht);
+  //unlock_timer_heap(ht);
 
   return status;
 }
+
+
 
 int timer_heap_cancel(timer_heap_t* ht, timer_entry* entry) {
   if (NULL == ht || NULL == entry) {
     return -1;
   }
 
-  lock_timer_heap(ht);
+  //lock_timer_heap(ht);
   cancel(ht, entry);
-  unlock_timer_heap(ht);
+  //unlock_timer_heap(ht);
 
   return 0;
 }
@@ -437,9 +442,9 @@ int cal_timeout_time(timer_heap_t* ht) {
     gettickcount(&now);
     TIME_VAL_SUB(delay, now);
     timeout = TIME_VAL_MSEC(delay);
-  }
-  if (timeout < 0) {
-    timeout = -1;
+    if (timeout < 0) {
+      timeout = 0;
+    }
   }
 
   return timeout;
@@ -459,11 +464,13 @@ void* timer_thread(void* data) {
     timeout = cal_timeout_time(ht);
     ret = poll(&pfd, 1, timeout);
     if (0 == ret) {
+      LOG(INFO, "Poll time out");
     } else if (1 ==ret) {
       CHECK(1 == read(ht->fd[0], flag, 1));
     } else {
       LOG(INFO, "%s", strerror(errno));
     }
+    LOG(INFO, "Start timer heap");
     timer_heap_poll(ht, NULL);
   }
 }
@@ -472,21 +479,22 @@ void init_timer(msg_timer_t* timer,
                  TIMEOUT_FUNC cb,
                  void* data,
                  unsigned int timeout_time) {
-//  printf("addr of cb is %p\n", cb);
   timer_entry_init(timer, data, cb, timeout_time);
 }
 
 
 void stop_timer(msg_timer_t* timer) {
+  lock_timer_heap(g_timer_heap);
   timer_heap_cancel(g_timer_heap, timer);
+  unlock_timer_heap(g_timer_heap);
 }
 
+
 int start_timer(msg_timer_t* timer) {
+  lock_timer_heap(g_timer_heap);
   timer_heap_cancel(g_timer_heap, timer);
   int ret = timer_heap_schedule(g_timer_heap, timer, &timer->delay);
-//  if(0 != ret) {
-//    LOG(ERROR, "add timer failed\n");
-//  }
+  unlock_timer_heap(g_timer_heap);
   CHECK(0 == ret, "add timer failed");
   return ret;
 }
@@ -501,15 +509,23 @@ int renew_timer(msg_timer_t* timer, uint32 timeout_time) {
 bool is_timer_started(msg_timer_t* timer) {
   return (-1 != timer->timer_id);
 }
-#include <signal.h>
+
+int timer_will_expire_in(msg_timer_t* timer) {
+  time_val now;
+  time_val future;
+  int timeout;
+  future.sec = timer->timer_value.sec;
+  future.msec = timer->timer_value.msec;
+  gettickcount(&now);
+  TIME_VAL_SUB(future, now);
+  timeout = TIME_VAL_MSEC(future);
+  return timeout;
+}
+
 int init_timer_thread() {
   int ret = 0;
   ret = timer_heap_create(DEFAULT_TIMER_HEAP_SIZE, &g_timer_heap);
   CHECK(0 == ret, "timer_heap_create failed.");
-//  if (0 != ret) {
-//    LOG(ERROR, "timer_heap_create failed.");
-//    return ret;
-//  }
   pthread_t thread_id;
   ret = pthread_create(&thread_id, NULL, &timer_thread, (void*)g_timer_heap);
   if (0 != ret) {

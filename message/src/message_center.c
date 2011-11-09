@@ -34,7 +34,7 @@ void msg_main() {
       LOG(WARNING, "Receive msg from msg queue failed");
       continue;
     }
-//    LOG(INFO,"Receive msg from APP, length is %d", (int)ret);
+    LOG(INFO,"Receive msg from APP, length is %d", (int)ret);
     msg_header_t mh;
     memset(&mh, 0, sizeof(mh));
     memcpy(&mh, msg_buf, sizeof(mh));

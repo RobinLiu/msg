@@ -9,23 +9,32 @@ extern "C" {
 #ifdef USING_POSIX_THREAD
 #include <pthread.h>
 
+#if DEBUG_LOCK
+typedef struct {
+  pthread_t           locker_thread;
+  pthread_mutex_t     locker;
+  char                locker_info[128];
+  bool                locked;
+} lock_t;
+
+void _lock(lock_t* locker, char* file, int line);
+void _unlock(lock_t* locker, char* file, int line);
+
+#define lock(locker)    _lock(locker, __FILE__, __LINE__)
+#define unlock(locker)  _unlock(locker, __FILE__, __LINE__)
+
+#else
 typedef pthread_mutex_t lock_t;
+void lock(lock_t* locker);
 
-//typedef struct {
-//  int8              locked_times;
-//  pthread_t         holder;
-//  pthread_mutex_t   mutex;
-//} lock_t;
-
-int32 init_lock(lock_t* lock);
-
-void lock(lock_t* lock);
-
-void unlock(lock_t* lock);
-
+void unlock(lock_t* locker);
 #endif
 
 
+int32 init_lock(lock_t* lock);
+
+
+#endif
 
 
 #ifdef __cplusplus

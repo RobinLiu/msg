@@ -94,6 +94,7 @@ typedef struct link {
     uint32          num_of_sent_msg;
     uint32          num_of_sent_frag;
     uint32          num_of_acked_frag;
+    uint32          num_of_droped_msg;
   } tx;
 
   struct {
@@ -108,6 +109,8 @@ typedef struct link {
   } rx;
 } msg_link_t;
 
+
+
 /******************************************************************************
  * Global variables
  *****************************************************************************/
@@ -119,6 +122,9 @@ lock_t g_link_table_lock;
  * Functions
  *****************************************************************************/
 msg_link_t* get_msg_link(node_id_t node_id);
+void start_debug_thread();
+void start_heartbeater(void* data);
+
 
 void init_msg_link() {
   uint32 i = 0;
@@ -130,8 +136,9 @@ void init_msg_link() {
     g_msg_link[i] = NULL;
   }
   unlock(&g_link_table_lock);
-
+  start_debug_thread();
 }
+
 
 msg_frag_t* alloc_msg_frag(uint32 payload_len) {
 
@@ -174,14 +181,12 @@ static void fill_msg_to_msg_frag(message_t* msg, msg_frag_t* msg_frag) {
 }
 
 
-static inline bool sliding_window_is_empty(msg_link_t* link)
-{
+static inline bool sliding_window_is_empty(msg_link_t* link) {
    return (uint8)(link->tx.win_end == link->tx.win_start);
 }
 
 
-static inline bool sliding_window_is_full(msg_link_t* link)
-{
+static inline bool sliding_window_is_full(msg_link_t* link) {
    return (WIN_INDEX_SUB(link->tx.win_end, link->tx.win_start) >= g_tx_window_size);
 }
 
@@ -196,7 +201,7 @@ static inline int32 sliding_window_get_ind(uint16 frame_seq, msg_link_t* link) {
   tail_frames = FRAME_SEQ_SUB(link->tx.frame_seq, frame_seq);
   in_flight_frames = sliding_window_get_used_size(link);
   if (tail_frames > in_flight_frames || tail_frames == 0) {
-    LOG(WARNING, "sliding_window_get_ind failed");
+    LOG(INFO, "sliding_window_get_ind failed");
     return -1;
   }
   return (int32)WIN_INDEX_SUB(link->tx.win_end, tail_frames);
@@ -230,7 +235,7 @@ static void prepare_pkt(msg_frag_t* msg_frag, node_id_t peer) {
   uint8* data_ptr = msg_frag->data;
 
   /*ethernet header contains following field:
-   * |dest mac  | src mac|optional vlan tag| ether type|
+   * |dest mac  | src mac|optinal vlan tag| ether type|
    * |6(octets) |6       |4               | 2         |
    * */
   memcpy(data_ptr, dest_mac, MAC_ADDR_LEN);
@@ -242,33 +247,46 @@ static void prepare_pkt(msg_frag_t* msg_frag, node_id_t peer) {
 
 static void conn_xmit_pkt(msg_frag_t* msg_frag, msg_link_t* link) {
 //  msg_link_t* link = get_msg_link(peer);
+//#if USING_LAYER_2
   prepare_pkt(msg_frag, link->peer);
+//#endif
   driver_xmit_pkt(link->conn_info.connfd,
                   (void*)&link->conn_info.sockinfo,
                   (void*)msg_frag->data,
                   msg_frag->data_len);
-  LOG(INFO, "xmit frag: %d", link->tx.frame_seq);
+//  LOG(INFO, "xmit frag: %d to node %d", link->tx.frame_seq, link->peer);
 }
 
 
 static void tx_msg_enqueue(message_t* msg, msg_link_t* link) {
   uint32 queue_size = 0;
   lock(&link->tx.tx_lock);
+  queue_size = link->tx.msg_queue_size;
   bool was_empty = list_empty(&link->tx.msg_queue);
+
+  if ((MAX_MSG_IN_QUEUE/2) <= queue_size && MAX_MSG_IN_QUEUE >= queue_size) {
+    unlock(&link->tx.tx_lock);
+    LOG(WARNING, "Sender thread is going to sleep for %d ms",
+        QUEUE_FULL_WAIT_TIME/1000);
+    usleep(QUEUE_FULL_WAIT_TIME);
+    lock(&link->tx.tx_lock);
+  } else if (MAX_MSG_IN_QUEUE < queue_size){
+    //drop the message and return;
+    link->tx.num_of_droped_msg++;
+    LOG(ERROR, "Droped msg num %d", link->tx.num_of_droped_msg);
+    free_msg_buff(&msg);
+    unlock(&link->tx.tx_lock);
+    return;
+  }
+
   //TODO: limit the number of message in the queue to avoid too many messages.
   list_add_tail(&msg->list, &link->tx.msg_queue);
   link->tx.msg_queue_size++;
-  queue_size = link->tx.msg_queue_size;
+  unlock(&link->tx.tx_lock);
   LOG(INFO, "queue size is %d for node %d", link->tx.msg_queue_size, link->peer);
   if (was_empty) {
-    LOG(INFO, "new message arrived, notify thread...");
+    LOG(INFO, "New message to node %d arrived , notify thread...", link->peer);
     notify_thread(&link->tx.tx_queue_threshold);
-  }
-  unlock(&link->tx.tx_lock);
-  //TODO: find a solution to limit the some specific sender's speed,
-  //following code blocks all other sender.
-  if (MAX_MSG_IN_QUEUE <= queue_size) {
-    usleep(QUEUE_FULL_WAIT_TIME);
   }
 }
 
@@ -288,7 +306,7 @@ static void send_zero_msg(uint16 frame_seq,
   lh->frag_index = 0;
   lh->msg_seq   = msg_seq;
   lh->is_last_frag = 1;
-  LOG(INFO, "frag_seq is %d", lh->frag_seq);
+//  LOG(INFO, "frag_seq is %d to node %d", lh->frag_seq, link->peer);
   msg->data_len += sizeof(link_header_t);
   msg->data -= sizeof(link_header_t);
   conn_xmit_pkt(msg, link);
@@ -305,24 +323,37 @@ static void send_reset_ack(msg_link_t* link) {
 }
 #endif
 
+static uint16 get_start_frame_seq(msg_link_t* link) {
+  if (NULL == link->tx.win[link->tx.win_start].frag ||
+      NULL == link->tx.win[link->tx.win_start].frag->data) {
+    return link->tx.frame_seq;
+  }
+  msg_frag_t* frag = link->tx.win[link->tx.win_start].frag;
+  link_header_t* lh = (link_header_t*)(frag->data + ETH_HEADER_LEN);
+  return lh->frag_seq;
+}
+
 static void send_heartbeat(msg_link_t* link) {
 //  if (link->status != LINK_STATUS_OK) {
-    LOG(INFO, "Begin to send HeartBeat");
-    send_zero_msg(link->tx.frame_seq, PDU_HB, link, link->status);
-    LOG(INFO, "end send HeartBeat");
+    LOG(INFO, "Begin to send HeartBeat to node %d", link->peer);
+    //uint16 frag_seq = get_start_frame_seq(link);
+    send_zero_msg(/*frag_seq*/link->tx.frame_seq, PDU_HB, link, link->status);
+    LOG(INFO, "end send HeartBeat to node %d", link->peer);
 //  }
 }
 
 
 static void send_heartbeat_ack(msg_link_t* link) {
-  LOG(INFO, "Begin to send HeartBeat ack");
-  send_zero_msg(link->tx.frame_seq, PDU_HB_ACK, link, link->status);
-  LOG(INFO, "end send HeartBeat ack");
+  LOG(INFO, "Begin to send HeartBeat ack to node %d", link->peer);
+  //uint16 frag_seq = get_start_frame_seq(link);
+//  send_zero_msg(frag_seq, PDU_HB, link, link->status);
+  send_zero_msg(/*frag_seq*/link->tx.frame_seq, PDU_HB_ACK, link, link->status);
+  LOG(INFO, "end send HeartBeat ack to node %d", link->peer);
 }
 
 
 static void send_ack(link_header_t* lh, msg_link_t* link) {
-  LOG(INFO,"ack for seq %d", lh->frag_seq);
+  LOG(INFO,"ack for seq %d to node %d", lh->frag_seq, link->peer);
   send_zero_msg(lh->frag_seq, PDU_ACK, link, lh->msg_seq);
 }
 
@@ -335,19 +366,20 @@ static void send_retrans_req(msg_link_t* link) {
 static void send_retrans(uint16 win_ind, msg_link_t* link) {
   uint16 ind;
   if(win_ind > g_tx_window_size){
-    LOG(WARNING, "Invalid windows index: %d", win_ind);
+    LOG(WARNING, "Invalid windows index: %d to node %d", win_ind, link->peer);
     return;
   }
   ind = win_ind;
   for(ind = win_ind; ind != link->tx.win_end; ind = WIN_INDEX_ADD(ind, 1)) {
     //make sure that the frame buffer has not been freed.
-    LOG(ERROR, "Retrans wind[%d]", ind);
+    LOG(INFO, "Retrans wind[%d] to node %d", ind, link->peer);
     CHECK(NULL != link->tx.win[ind].frag);
 //    conn_xmit_pkt(link->tx.win[ind].frag, link->peer);
     msg_frag_t* msg_frag = link->tx.win[ind].frag;
     driver_xmit_pkt(link->conn_info.connfd,
-        (void*)&link->conn_info.sockinfo,(void*)msg_frag->data, msg_frag->data_len);
-
+                    (void*)&link->conn_info.sockinfo,
+                    (void*)msg_frag->data,
+                    msg_frag->data_len);
   }
 }
 
@@ -396,7 +428,7 @@ static error_no_t put_msg_into_sliding_window(message_t* msg, msg_link_t* link) 
 
     uint16 end = link->tx.win_end;
     link->tx.win[end].frag = msg_frag;
-    LOG(INFO, "trans wind[%d]", end);
+    LOG(INFO, "Send frag %d to node %d by wind[%d]", lh->frag_seq, link->peer, end);
     //move sliding window to next;
     link->tx.win_end = WIN_INDEX_ADD(end, 1);
     //send to driver;
@@ -417,7 +449,11 @@ static void* tx_thread_worker(void* arg){
   msg_link_t* link = ( msg_link_t*)arg;
 
   message_t* msg = NULL;
-  send_heartbeat(link);
+  link->status = LINK_STATUS_UP;
+//  char big_buf[8*1024*1024 + 2] = {0};
+//  send_heartbeat(link);
+//  lock(&link->tx.tx_lock);
+  start_heartbeater((void*)link);
 
   while(1) {
     lock(&link->tx.tx_lock);
@@ -429,10 +465,14 @@ static void* tx_thread_worker(void* arg){
     }
 
     if(link->status != LINK_STATUS_UP || link->peer_status != LINK_STATUS_UP) {
-      LOG(WARNING, "Link status is not ok");
+      LOG(ERROR, "Link status is not ok for node %d", link->peer);
       unlock(&link->tx.tx_lock);
+      //TODO: get peer node status from the node manager, if the status is ok
+      //then begin the heart beat.
       if (LINK_STATUS_UNKNOWN == link->peer_status) {
-        send_heartbeat(link);
+//        LOG(INFO, "Send .....");
+//        send_heartbeat(link);
+        start_heartbeater((void*)link);
       }
       continue;
     }
@@ -445,7 +485,7 @@ static void* tx_thread_worker(void* arg){
     if(sliding_window_is_full(link)) {
       LOG(INFO,"sliding window is full");
       if (!is_timer_started(&link->retrans_timer)) {
-        LOG(ERROR, "Timer should not be started here...");
+        LOG(ERROR, "Retrans Timer for node %d stopped, start it...", link->peer);
         start_timer(&link->retrans_timer);
       }
       unlock(&link->tx.tx_lock);
@@ -462,7 +502,8 @@ static void* tx_thread_worker(void* arg){
     free_msg_buff(&msg);
     link->tx.msg_queue_size--;
     link->tx.num_of_sent_msg++;
-    LOG(INFO, "Num of msg send is: %d", link->tx.num_of_sent_msg);
+//    LOG(INFO, "Send the %dth msg to node %d",
+//              link->tx.num_of_sent_msg, link->peer);
     unlock(&link->tx.tx_lock);
   }
 
@@ -473,36 +514,40 @@ void timeout_handle(void* data) {
   CHECK(NULL != data);
   msg_link_t* link = (msg_link_t*)data;
 
-  LOG(ERROR, "Timeout for msg ack, retrans it the %d times.", link->tx.retrans_timeout_count);
+  LOG(WARNING, "Timeout for msg ack to node %d, retrans it the %d times.",
+               link->peer, link->tx.retrans_timeout_count);
   lock(&link->tx.tx_lock);
   if (link->tx.retrans_timeout_count < MAX_RETRNS_COUNT) {
     send_retrans(link->tx.win_start, link);
     link->tx.retrans_timeout_count++;
+    renew_timer(&link->retrans_timer, RETRANS_TIMEOUT);
 //    renew_timer(&link->retrans_timer, RETRANS_TIMEOUT);
   } else {
     //TODO: maybe need to set the status of the link unavailable
     link->peer_status = LINK_STATUS_DOWN;
-//    LOG(ERROR, "Max retry count reached, drop the fragment.");
-////    stop_timer(&link->retrans_timer);
+    LOG(ERROR, "Max retry count reached, set the node %d as unusable.",
+               link->peer);
+    stop_timer(&link->retrans_timer);
 //    //drop the frag and move to next frag.
 //    uint16 new_win_start = WIN_INDEX_ADD(link->tx.win_start, 1);
 //    //del msg_frag from sliding window
 //    sliding_window_move_to(new_win_start, link);
     link->tx.retrans_timeout_count = 0;
   }
-  bool is_empty = sliding_window_is_empty(link);
+//  bool is_empty = sliding_window_is_empty(link);
+//  if (!is_empty) {
+//  }
+  LOG(INFO, "Out timeout_handle for node %d", link->peer);
   unlock(&link->tx.tx_lock);
-  if (!is_empty) {
-    renew_timer(&link->retrans_timer, RETRANS_TIMEOUT);
-  }
-  LOG(INFO, "Out timeout_handle");
 }
 
 void start_heartbeater(void* data) {
   CHECK(NULL != data);
   msg_link_t* link = (msg_link_t*)data;
+  lock(&link->tx.tx_lock);
   send_heartbeat(link);
   start_timer(&link->heartbeat_timer);
+  unlock(&link->tx.tx_lock);
 //  start_timer(&link->heartbeat_interval);
 }
 
@@ -513,10 +558,11 @@ void heartbeat_timeout_handle(void* data) {
   link->unacked_heatbeat_num++;
   if (MAX_UNACKED_HEARTBEAT_NUM <= link->unacked_heatbeat_num) {
     link->peer_status = LINK_STATUS_DOWN;
+    unlock(&link->lock);
   } else {
+    unlock(&link->lock);
     start_heartbeater((void*)link);
   }
-  unlock(&link->lock);
 }
 
 static void get_conn_info(node_id_t node_id, conn_info_t* conn_info) {
@@ -558,14 +604,15 @@ static void init_link(node_id_t node_id, msg_link_t* link) {
 
 
 msg_link_t* get_msg_link(node_id_t node_id) {
+  lock(&g_link_table_lock);
   uint32 link_idx = get_msg_link_idx(node_id);
 //  LOG(INFO, "link_idx is %d", link_idx);
   if(link_idx >= MAX_NODE_NUM) {
     LOG(WARNING,"Get msg link faild");
+    unlock(&g_link_table_lock);
     return NULL;
   }
 
-  lock(&g_link_table_lock);
   if(g_msg_link[link_idx] != NULL) {
     if (g_msg_link[link_idx]->conn_info.connfd == -1) {
       get_conn_info(g_msg_link[link_idx]->peer, &g_msg_link[link_idx]->conn_info);
@@ -581,7 +628,6 @@ msg_link_t* get_msg_link(node_id_t node_id) {
 
   //TODO: initialization for the new link.
   init_link(node_id, new_link);
-
   g_msg_link[link_idx] = new_link;
   unlock(&g_link_table_lock);
   return g_msg_link[link_idx];
@@ -651,9 +697,12 @@ static void handle_heartbeat(uint8* pkt, msg_link_t* link) {
 
   lock(&link->lock);
   lock(&link->rx.rx_lock);
-  LOG(INFO, "HeartBeat is received");
+  LOG(INFO, "HeartBeat is received from node %d", link->peer);
   link_header_t* lh = (link_header_t*)pkt;
   link->rx.exp_frame_seq = lh->frag_seq;
+  //borrow the msg_seq to represent the status of peer.
+//  uint32 peer_status = lh->msg_seq;
+  //if peer status is
   link->peer_status = LINK_STATUS_UP;
   send_heartbeat_ack(link);
   link->status = LINK_STATUS_UP;
@@ -666,20 +715,22 @@ static void handle_heartbeat_ack(uint8* pkt, msg_link_t* link) {
   lock(&link->lock);
   lock(&link->rx.rx_lock);
   stop_timer(&link->heartbeat_timer);
-  LOG(INFO, "HeartBeat ack is received");
+  LOG(INFO, "HeartBeat ack is received from node %d", link->peer);
   link_header_t* lh = (link_header_t*)pkt;
   link->peer_status = lh->msg_seq;
   link->rx.exp_frame_seq = lh->frag_seq;
-  unlock(&link->rx.rx_lock);
-  link->status = LINK_STATUS_UP;
+//  link->status = LINK_STATUS_UP;
 //  link->peer_status = LINK_STATUS_UP;
 
-  if (LINK_STATUS_UP == link->peer_status) {
+  if (LINK_STATUS_UP != link->peer_status) {
+    link->peer_status = LINK_STATUS_UP;
     notify_thread(&link->tx.tx_queue_threshold);
-  } else {
+    LOG(INFO, "Peer is ready to receive packet now, notify thread to send...");
+  } /*else {
     LOG(INFO, "peer is not ok, send HeartBeat again");
     send_heartbeat(link);
-  }
+  }*/
+  unlock(&link->rx.rx_lock);
   unlock(&link->lock);
 }
 
@@ -687,7 +738,8 @@ static void handle_data(uint8* pkt, msg_link_t* link) {
   link_header_t* lh = (link_header_t*)pkt;
   lock(&link->rx.rx_lock);
   if(lh->frag_seq == link->rx.exp_frame_seq) {
-    LOG(INFO, "Correct seq received, seq is %d",lh->frag_seq );
+    LOG(INFO, "Correct seq received from node %d, seq is %d",
+              link->peer, lh->frag_seq );
     //send ack to peer
     link->rx.exp_frame_seq++;
     link->rx.num_of_rcvd_frag++;
@@ -716,7 +768,8 @@ static void handle_data(uint8* pkt, msg_link_t* link) {
       link->rx.message = new_msg;
     } else if (link->rx.message == NULL ||
         link->rx.message->header->msg_seq != lh->msg_seq) {
-      LOG(WARNING, "First frame of a message is not received, drop the fragment");
+      LOG(WARNING, "First frame of a message is not received from node %d, drop the fragment",
+                   link->peer);
       unlock(&link->rx.rx_lock);
       //CHECK(0 == 1);
       return;
@@ -737,7 +790,7 @@ static void handle_data(uint8* pkt, msg_link_t* link) {
       router_receive_msg(link->rx.message);
       free_msg_buff(&link->rx.message);
       link->rx.num_of_rcvd_msg++;
-      LOG(INFO, "received %d from node %d", link->rx.num_of_rcvd_msg, link->peer);
+      LOG(INFO, "received %d msg from node %d", link->rx.num_of_rcvd_msg, link->peer);
 //      if (NULL != link->rx.message) {
 //        free_msg_buff(&link->rx.message);
 //      }
@@ -745,14 +798,16 @@ static void handle_data(uint8* pkt, msg_link_t* link) {
   } else if (FRAME_SEQ_GT(lh->frag_seq , link->rx.exp_frame_seq)){
     if (link->rx.requested_frag != link->rx.exp_frame_seq) {
       //unexpectd frame received, ignore or request retrans
-      LOG(WARNING, "Retrans reques for frame seq: %d", link->rx.exp_frame_seq);
+      LOG(WARNING, "Retrans reques for frame seq: %d to node %d",
+                link->rx.exp_frame_seq, link->peer);
       send_retrans_req(link);
       link->rx.requested_frag = link->rx.exp_frame_seq;
     }
 
   } else { //duplicated buff received, send ack to peer and drop the packet
     //CHECK(0 == 1);
-    LOG(WARNING, "Duplicated package received ,send ack and drop it");
+    LOG(WARNING, "Duplicated package received from node %d ,send ack and drop it",
+               link->peer);
     send_ack(lh, link);
     link->rx.num_of_ack_sent++;
   }
@@ -768,13 +823,13 @@ static void handle_ack(void* pkt, msg_link_t* link) {
   bool was_full = sliding_window_is_full(link);
   int32 win_ind_ret = sliding_window_get_ind(lh->frag_seq, link);
   if(win_ind_ret < 0 ) {
-    LOG(WARNING, "Incorrect ack received, drop it");
+    LOG(WARNING, "Incorrect ack received from node %d, drop it", link->peer);
 //    send_heartbeat(link);
     unlock(&link->tx.tx_lock);
     return;
   }
 
-  LOG(INFO, "ack is received for frag:%d", lh->frag_seq);
+  LOG(INFO, "ack is received for frag:%d from node %d", lh->frag_seq, link->peer);
   uint16 win_ind = (uint16)win_ind_ret;
   uint16 new_win_start = WIN_INDEX_ADD(win_ind, 1);
   //del msg_frag from sliding window
@@ -788,17 +843,19 @@ static void handle_ack(void* pkt, msg_link_t* link) {
 //  }
   //Notify sender to continuE send if sliding window was full;
   if(was_full) {
+    LOG(INFO, "Sliding window has space now, notify thread to send packet...");
     notify_thread(&link->tx.tx_queue_threshold);
   }
   bool is_empty = sliding_window_is_empty(link);
 
-  unlock(&link->tx.tx_lock);
   if (!is_empty) {
     renew_timer(&link->retrans_timer, RETRANS_TIMEOUT);
 //    start_timer(&link->retrans_timer);
   } else {
+    LOG(INFO, "Stop Retrans timer for node %d", link->peer);
     stop_timer(&link->retrans_timer);
   }
+  unlock(&link->tx.tx_lock);
 }
 
 
@@ -807,10 +864,12 @@ static void handle_retrans_req(void* pkt, msg_link_t* link) {
   link_header_t* lh = (link_header_t*)pkt;
   int32 win_ind_ret = sliding_window_get_ind(lh->frag_seq, link);
   if(win_ind_ret < 0 ) {
-    LOG(ERROR, "Incorrect retrans req received, drop it");
-    CHECK(win_ind_ret >= 0);
+    LOG(WARNING, "Incorrect retrans req received from node %d, drop it",
+                  link->peer);
+//    CHECK(win_ind_ret >= 0);
+//    send_heartbeat(link);
     unlock(&link->tx.tx_lock);
-    send_heartbeat(link);
+    start_heartbeater((void*)link);
     return;
   }
   uint16 win_ind = (uint16)win_ind_ret;
@@ -851,6 +910,10 @@ void on_pkt_received(void* pkt, uint32 pkt_len) {
   }
 
   stop_timer(&link->heartbeat_interval);
+//  if (LINK_STATUS_UP != link->peer_status) {
+//    start_heartbeater((void*)link);
+//  }
+
   switch(lh->pdu_type) {
 #if  ENABLE_RESET_LINK
     case PDU_RESET:
@@ -867,18 +930,36 @@ void on_pkt_received(void* pkt, uint32 pkt_len) {
       handle_heartbeat_ack(frag_ment, link);
       break;
     case PDU_DATA:
-      if (link->status == LINK_STATUS_UP) {
+      if (LINK_STATUS_UP == link->status && LINK_STATUS_UP == link->peer_status) {
         handle_data(frag_ment, link);
+      } else {
+        LOG(INFO, "Data received from node %d, set peer state as usable.",
+                  link->peer);
+        start_heartbeater((void*)link);
+//        link->peer_status = LINK_STATUS_UP;
+//        notify_thread(&link->tx.tx_queue_threshold);
       }
       break;
     case PDU_ACK:
-      if (link->status == LINK_STATUS_UP) {
+      if (LINK_STATUS_UP == link->status && LINK_STATUS_UP == link->peer_status) {
         handle_ack(frag_ment, link);
+      } else {
+        LOG(INFO, "Data received from node %d, set peer state as usable.",
+                  link->peer);
+        start_heartbeater((void*)link);
+//        link->peer_status = LINK_STATUS_UP;
+//        notify_thread(&link->tx.tx_queue_threshold);
       }
       break;
     case PDU_RETRANS:
-      if (link->status == LINK_STATUS_UP) {
+      if (LINK_STATUS_UP == link->status && LINK_STATUS_UP == link->peer_status) {
         handle_retrans_req(frag_ment, link);
+      } else {
+        LOG(INFO, "Data received from node %d, set peer state as usable.",
+                  link->peer);
+//        link->peer_status = LINK_STATUS_UP;
+//        notify_thread(&link->tx.tx_queue_threshold);
+        start_heartbeater((void*)link);
       }
       break;
     default:
@@ -889,7 +970,7 @@ void on_pkt_received(void* pkt, uint32 pkt_len) {
 }
 
 void node_state_changed(node_id_t node, uint8 status) {
-  LOG(INFO, "node status changed to %d", status);
+  LOG(WARNING, "node %d status changed to %d", node, status);
   msg_link_t* link = get_msg_link(node);
   if(NULL == link) {
     return;
@@ -899,6 +980,7 @@ void node_state_changed(node_id_t node, uint8 status) {
   if(LINK_STATUS_UP == status) {
     //set to this status so that we can start to do the heartbeat;
     link->peer_status = LINK_STATUS_UNKNOWN;
+    LOG(INFO, "Node state changed to ok, notify the thread...");
     notify_thread(&link->tx.tx_queue_threshold);
   } else {
     LOG(INFO, "link went down");
@@ -910,4 +992,116 @@ void node_state_changed(node_id_t node, uint8 status) {
     stop_timer(&link->heartbeat_interval);
   }
   unlock(&link->lock);
+}
+
+
+void print_link_info(int index) {
+  if ( g_msg_link[index] == NULL ) {
+    printf("No data on link %d\n", index);
+    return;
+  }
+  printf("peer                           %d\n", g_msg_link[index]->peer);
+  printf("retrans_timer.timer_id         %d\n", g_msg_link[index]->retrans_timer.timer_id);
+  printf("retrans_timer.delay.sec        %ld\n", g_msg_link[index]->retrans_timer.delay.sec);
+  printf("retrans_timer.delay.msec       %ld\n", g_msg_link[index]->retrans_timer.delay.msec);
+  printf("retrans_timer.expires in       %d microseconds\n\n", timer_will_expire_in(&g_msg_link[index]->retrans_timer));
+  printf("heartbeat_timer.timer_id       %d\n", g_msg_link[index]->heartbeat_timer.timer_id);
+  printf("heartbeat_timer.delay.sec      %ld\n", g_msg_link[index]->heartbeat_timer.delay.sec);
+  printf("heartbeat_timer.delay.msec     %ld\n", g_msg_link[index]->heartbeat_timer.delay.msec);
+  printf("heartbeat_timer.expires in     %d microseconds\n\n", timer_will_expire_in(&g_msg_link[index]->heartbeat_timer));
+  printf("heartbeat_interval.timer_id    %d\n", g_msg_link[index]->heartbeat_interval.timer_id);
+  printf("heartbeat_interval.delay.sec   %ld\n", g_msg_link[index]->heartbeat_interval.delay.sec);
+  printf("heartbeat_interval.delay.msec  %ld\n", g_msg_link[index]->heartbeat_interval.delay.msec);
+  printf("heartbeat_interval.expires in  %d microseconds\n\n", timer_will_expire_in(&g_msg_link[index]->heartbeat_interval));
+  printf("unacked_heatbeat_num           %d\n", g_msg_link[index]->unacked_heatbeat_num);
+  printf("status                         %d\n", g_msg_link[index]->status);
+  printf("peer_status                    %d\n\n", g_msg_link[index]->peer_status);
+  printf("tx.frame_seq                   %d\n", g_msg_link[index]->tx.frame_seq);
+  printf("tx.retrans_timeout_count       %d\n", g_msg_link[index]->tx.retrans_timeout_count);
+  printf("tx.win_start                   %d\n", g_msg_link[index]->tx.win_start);
+  printf("tx.win_end                     %d\n", g_msg_link[index]->tx.win_end);
+  printf("tx.msg_queue_size              %d\n", g_msg_link[index]->tx.msg_queue_size);
+  printf("tx.num_of_sent_msg             %d\n", g_msg_link[index]->tx.num_of_sent_msg);
+  printf("tx.num_of_sent_frag            %d\n", g_msg_link[index]->tx.num_of_sent_frag);
+  printf("tx.num_of_acked_frag           %d\n\n", g_msg_link[index]->tx.num_of_acked_frag);
+  printf("tx window full                 %d\n", sliding_window_is_full(g_msg_link[index]));
+  printf("tx window empty                %d\n\n", sliding_window_is_empty(g_msg_link[index]));
+  printf("rx.exp_frame_seq               %d\n", g_msg_link[index]->rx.exp_frame_seq);
+  printf("rx.requested_frag              %d\n", g_msg_link[index]->rx.requested_frag);
+  printf("rx.num_of_ack_sent             %d\n", g_msg_link[index]->rx.num_of_ack_sent);
+  printf("rx.num_of_rcvd_frag            %d\n", g_msg_link[index]->rx.num_of_rcvd_frag);
+  printf("rx.num_of_rcvd_msg             %d\n\n", g_msg_link[index]->rx.num_of_rcvd_msg);
+}
+
+
+void* debug_thread(void* arg) {
+  (void)arg;
+  char input[16] = {0};
+  int index = 0;
+  int choice;
+  int log_level = 0;
+  char log_filter[256] = {0};
+
+  while(1) {
+    choice =  -1;
+    memset(input, 0, sizeof(input));
+    printf("Input your choice:\n");
+    printf("1: Set Log Level.\n");
+    printf("2: Set Log filter and level.\n");
+    printf("3: Clear Log filter.\n");
+    printf("4: Print link info\n");
+    printf("5: Exit program\n");
+    printf("6: Generate core dump file\n");
+    scanf("%s", input);
+//    scanf("%d", &choice);
+    choice = atoi(input);
+    printf("\n");
+
+    switch (choice) {
+      case 1:
+        printf("Set Log level to:\n");
+        printf("0: All log\n");
+        printf("1: Debug log\n");
+        printf("2: Warning log\n");
+        printf("3: Error log\n");
+        printf("4: Fatal log \n");
+        scanf("%d", &log_level);
+        set_min_log_level(log_level);
+        break;
+      case 2:
+        printf("Set log filter\n");
+        printf("Input filter:\n");
+        memset(log_filter, 0, sizeof(log_filter));
+        scanf("%s", log_filter);
+        set_log_filter(log_filter);
+        break;
+      case 3:
+        clear_log_filter();
+        break;
+      case 4:
+        printf("Input the index of the link:\n");
+        scanf("%d", &index);
+        if (index < 0 || index >= MAX_NODE_NUM) {
+          printf("input 0 to %d to get link info\n", MAX_NODE_NUM);
+          continue;
+        } else {
+          print_link_info(index);
+        }
+        break;
+      case 5:
+        exit(0);
+        break;
+      case 6:
+        //used to generate core dump file.
+        abort();
+        break;
+      default:
+        break;
+    }
+  }
+}
+
+void start_debug_thread() {
+  pthread_t dbg_thread_id;
+  pthread_create(&dbg_thread_id, NULL, &debug_thread, NULL);
 }

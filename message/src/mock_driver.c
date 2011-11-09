@@ -98,8 +98,8 @@ void driver_xmit_pkt(int connfd, void* conndata, void* buff, uint32 buff_len) {
     close(connfd);
     connfd = -1;
   }
-  LOG(INFO, "send msg to UDP[%s:%u] done",inet_ntoa(((struct sockaddr_in*)conndata)->sin_addr),
-      ntohs(((struct sockaddr_in*)conndata)->sin_port));
+  /*LOG(INFO, "send msg to UDP[%s:%u] done",inet_ntoa(((struct sockaddr_in*)conndata)->sin_addr),
+      ntohs(((struct sockaddr_in*)conndata)->sin_port));*/
 //  size_t n = write(out_fd, buff, buff_len);
 //  CHECK(n == buff_len);
 }
@@ -137,10 +137,10 @@ void* tst_receiver(void* arg) {
     len = sizeof(cliaddr);
     msg_len = recvfrom(sockfd, msg_buf, sizeof(msg_buf), 0, (struct sockaddr *)&cliaddr, &len);
     CHECK(-1 != msg_len);
-    LOG(INFO, "Receive %d bytes from udp socket:[%s:%u]",
+    /*LOG(INFO, "Receive %d bytes from udp socket:[%s:%u]",
         msg_len,
         inet_ntoa(cliaddr.sin_addr),
-        ntohs(cliaddr.sin_port));
+        ntohs(cliaddr.sin_port));*/
     uint8* rcvd_msg = (uint8*)malloc(msg_len);
     CHECK(NULL != rcvd_msg);
     memcpy(rcvd_msg, msg_buf, msg_len);

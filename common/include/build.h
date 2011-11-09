@@ -10,7 +10,7 @@ extern "C" {
 //using posix thread library
 #define USING_POSIX_THREAD    1
 #define USING_POSIX_MSG_QUEUE 1
-
+#define DEBUG_LOCK            1
 //enable message debug
 #define DBG_MSG           1
 
