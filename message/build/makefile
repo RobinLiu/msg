@@ -31,7 +31,7 @@ TARGET_LIB = lib$(PROGRAM_NAME).a
 #    -I $(GTEST_DIR)/include \
 #    -I $(SRC_INC_DIR)
 INCLUDES = -I ./ -I ../..
-LDFLAGS +=  -lpthread -lstdc++ -lrt -L../../libs -llogging -lbase -lmock 
+LDFLAGS +=  -lpthread -lstdc++ -L../../libs -llogging -lbase -lmock -lrt
 
 #Helper Functions
 get_src_from_dir  = $(wildcard $1/*.cpp)  $(wildcard $1/*.cc) $(wildcard $1/*.c$)
