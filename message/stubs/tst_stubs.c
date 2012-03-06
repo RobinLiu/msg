@@ -55,6 +55,7 @@ void fill_content(uint8* buf, uint32 content_len) {
 void* generate_package(uint8 pdu_type, uint32 content_len, uint16 seq) {
   uint32 data_len = TOTAL_HEADER_LEN + content_len;
   void* buf = malloc(data_len);
+  CHECK(buf != NULL);
   memset(buf, 0, data_len);
 
   fill_link_header((uint8*)buf, pdu_type, content_len, seq);

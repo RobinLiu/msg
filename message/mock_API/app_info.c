@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 
 #define BASE_PORT_NUM 5700
-#if 1
+
 typedef struct network_info
 {
 	int8 mac[MAC_ADDR_LEN];
@@ -42,8 +42,6 @@ cluster_info_t 	cluster_info;
 uint8 			g_msg_center_group_id;
 uint16 			g_msg_center_app_id;
 
-
-
 uint8 get_self_group_id()
 {
 	return g_group_id;
@@ -59,7 +57,7 @@ uint8 get_self_role()
 	return cluster_info.node_info[g_node_id].group_info[g_group_id].role;
 }
 
-//TODO: optimize this piece of code. using other data structure to reduce the loops
+// TODO: optimize this piece of code. using other data structure to reduce the loops
 
 uint8 get_app_location(msg_receiver_t app, node_id_t* node_list)
 {
@@ -118,8 +116,7 @@ void read_config()
 	FILE* file;
 	file = fopen("config.txt", "r");
 	CHECK(NULL != file);
-	char buf[128] =
-	{ 0 };
+	char buf[128] = { 0 };
 	fgets(buf, sizeof(buf), file);
 	int tmp = 0;
 	sscanf(buf, "NodeID=%d", &tmp);
@@ -202,21 +199,6 @@ void init_sys_info()
 	read_config();
 }
 
-void print_cluster_info()
-{
-	int32 i = 0;
-	int32 j = 0;
-	for (i = 0; i < MAX_NODE_NUM; ++i)
-	{
-		LOG(INFO, "Node id: %d", cluster_info.node_info[i].node_id);
-		for (j = 0; j < MAX_GROUP_NUM_IN_NODE; ++j)
-		{
-			LOG(INFO, "Group: %d in node",
-					cluster_info.node_info[i].group_info[j].group_id);
-		}
-	}
-}
-
 
 void get_self_mac(uint8* mac)
 {
@@ -251,4 +233,3 @@ uint16 get_self_port()
 	return (uint16) (BASE_PORT_NUM + g_node_id);
 }
 
-#endif

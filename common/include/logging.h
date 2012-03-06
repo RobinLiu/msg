@@ -12,20 +12,20 @@
 extern "C" {
 #endif
 
-
 #define FILTER_BUF_SIZE   256
-extern int8 g_min_log_level;
-extern pthread_mutex_t logging_lock;
-extern bool is_lock_init;
-extern bool g_filter_log_flag ;
-extern char g_log_filter[FILTER_BUF_SIZE];
 
-enum LOGSEVERITY { LOG_VERBOSE = 0,
-                   LOG_INFO = 1,
-                   LOG_WARNING = 2,
-                   LOG_ERROR = 3,
+extern int8             g_min_log_level;
+extern pthread_mutex_t  logging_lock;
+extern bool             is_lock_init;
+extern bool             g_filter_log_flag ;
+extern char             g_log_filter[FILTER_BUF_SIZE];
+
+enum LOGSEVERITY { LOG_VERBOSE  = 0,
+                   LOG_INFO     = 1,
+                   LOG_WARNING  = 2,
+                   LOG_ERROR    = 3,
                    LOG_IMPORTANT = 3,
-                   LOG_FATAL = 4};
+                   LOG_FATAL    = 4};
 
 int8 get_min_log_level(void);
 void set_min_log_level(int8 log_level);
@@ -40,7 +40,6 @@ void clear_log_filter();
   (((int8)(LOG_ ## severity) >= get_min_log_level())) && LOG_NOT_FILTERED(file_str)
 
 #define ABORT abort()
-//#define ABORT exit(-1)
 
 #define PROCESS_FATAL(severity) \
   if((LOG_ ## severity) == LOG_FATAL) { \

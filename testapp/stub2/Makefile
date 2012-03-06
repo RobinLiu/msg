@@ -10,7 +10,6 @@ TARGET = testapp
 $(TARGET):	$(OBJS)
 	$(CC)  $(CFLAGS) $(OBJS) $(LIBS) -o $(TARGET)
 
-
 all:	$(TARGET)
 
 clean:

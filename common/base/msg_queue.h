@@ -8,9 +8,6 @@
 #define MSG_QUEUE_BUF_SIZE      2048
 #define RETRY_TIMES             4
 
-#ifndef __USE_XOPEN2K
-#define __USE_XOPEN2K  //MACRO for mq_timedsend
-#endif
 
 typedef mqd_t                 msg_queue_id_t;
 typedef const char*           queue_identifier_t;

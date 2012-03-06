@@ -79,7 +79,8 @@ void put_rsp_msg_to_sync_queue(message_t* msg)
 
 	struct list_head* plist = NULL;
 	sync_msg_pair_t* iter = NULL;
-	bool bReqfound = FALSE;lock(&msg_client->sync_msg_list_lock);
+	bool bReqfound = FALSE;
+	lock(&msg_client->sync_msg_list_lock);
 	list_for_each(plist, &msg_client->sync_msg_pair_list)
 	{
 		iter = list_entry(plist, sync_msg_pair_t, list);
@@ -210,10 +211,8 @@ int wait_for_rsp(int time_out, sync_msg_pair_t* sync_msg_pair)
 {
 
 	CHECK(NULL != sync_msg_pair);
-	struct pollfd pfd =
-	{ sync_msg_pair->fd[0], POLLIN, 0 };
-	char flag[1] =
-	{ 0 };
+	struct pollfd pfd = { sync_msg_pair->fd[0], POLLIN, 0 };
+	char flag[1] = { 0 };
 	int ret = poll(&pfd, 1, time_out);
 	if (0 == ret)
 	{

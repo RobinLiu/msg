@@ -15,7 +15,7 @@ void init_app_queue_id()
 	}
 }
 
-msg_queue_id_t get_app_queue_id(uint8 group_id, uint16 app_id)
+msg_queue_id_t get_app_queue_id(uint8 group_id, uint8 app_id)
 {
 	/*TODO: find a better way to hash the group id and app it to the index of the queue id
 	 * Here I made an assumption that group id on each node is continuous and begin

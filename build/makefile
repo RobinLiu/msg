@@ -1,4 +1,3 @@
-#FIXME	get the path of the root
 ROOT_DIR := $(PWD)/../
 DIRS= $(ROOT_DIR)/common/logging \
       $(ROOT_DIR)/common/base \

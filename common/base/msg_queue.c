@@ -15,8 +15,8 @@
 #define SERVER_MSG_QUEUE_SIZE   512
 #define MSG_SEND_TIME           500000000  //0.5s In nanoseconds
 
-msg_queue_id_t g_msg_queue_id = -1;
-thread_id_t g_receiver_thread_id = 0;
+msg_queue_id_t  g_msg_queue_id = -1;
+thread_id_t     g_receiver_thread_id = 0;
 
 extern void put_rsp_msg_to_sync_queue(message_t* msg);
 
@@ -58,7 +58,9 @@ error_no_t msg_queue_send(msg_queue_id_t msg_queue_id, void* msg_data,
 {
 
 #if USE_TIMED_SEND
-	struct timespec timeout;
+/*Check if we can use mq_timedsend*/
+#if (_XOPEN_SOURCE >= 600 || _POSIX_C_SOURCE >= 200112L)
+    struct timespec timeout;
 	timeout.tv_sec = 0;
 	timeout.tv_nsec = MSG_SEND_TIME;
 
@@ -95,6 +97,7 @@ error_no_t msg_queue_send(msg_queue_id_t msg_queue_id, void* msg_data,
 //    LOG(ERROR, "attr.mq_curmsgs %ld", attr.mq_curmsgs);
 	}
 	return SUCCESS_EC;
+#endif //end  __USE_XOPEN2K
 #else
 	(void) retry_times;
 	return mq_send(msg_queue_id, (const char *) msg_data, msg_len, msg_prio);
@@ -110,8 +113,7 @@ ssize_t msg_queue_receive(msg_queue_id_t msg_queue_id, void* msg_data,
 msg_queue_id_t get_msg_queue_id(uint8 group_id, uint16 app_id,
 		int32 max_msg_num)
 {
-	char queue_name[QUEUE_NAME_LEN] =
-	{ 0 };
+	char queue_name[QUEUE_NAME_LEN] = { 0 };
 	snprintf(queue_name, QUEUE_NAME_LEN, "/group-%d_app-%d", group_id, app_id);
 	queue_name[QUEUE_NAME_LEN - 1] = '\0';
 
@@ -143,10 +145,8 @@ void* message_receiver_thread(void* arg)
 	msg_queue_id_t msg_queue_id = get_self_msg_queue_id();
 	CHECK(msg_queue_id != -1);
 	(void) arg;
-//  MSG_RCVD_CB msg_rcvd_cb = (MSG_RCVD_CB)arg;
-//  msg_client_t* msg_client = (msg_client_t*)arg;
-	char msg_buf[MSG_QUEUE_BUF_SIZE] =
-	{ 0 };
+
+	char msg_buf[MSG_QUEUE_BUF_SIZE] = { 0 };
 	unsigned msg_prio = 0;
 	while (1)
 	{
@@ -161,6 +161,7 @@ void* message_receiver_thread(void* arg)
 		memset(&mh, 0, sizeof(mh));
 		memcpy(&mh, msg_buf, sizeof(mh));
 		message_t* msg = allocate_msg_buff(mh.msg_len);
+		CHECK(NULL != msg);
 		memcpy(msg->buf_head, msg_buf, ret);
 //    print_msg_header(msg);
 		switch (mh.msg_type)
@@ -179,6 +180,8 @@ void* message_receiver_thread(void* arg)
 			break;
 		}
 	}
+
+	return NULL;
 }
 
 void start_msg_queue(void* thread_data)

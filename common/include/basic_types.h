@@ -34,11 +34,13 @@ typedef int32               error_no_t;
 
 typedef struct {
   uint8   group_id;
-  uint16  app_id;
+  uint8   app_id;
+#if SUPPORT_2N_REDUNDANCY
   uint8   role;
+#endif
 } msg_receiver_t;
 
-typedef  msg_receiver_t     msg_sender_t;
+typedef  msg_receiver_t      msg_sender_t;
 
 typedef uint16               node_id_t;
 
@@ -76,9 +78,9 @@ typedef struct {
   struct list_head list;
 } message_t;
 
-#define MAC_ADDR_LEN 6
-#define MAC_ADDR_STR_LEN  18
-#define ETH_P_MSG 0x88aa
+#define MAC_ADDR_LEN        6
+#define MAC_ADDR_STR_LEN    18
+#define ETH_P_MSG           0x88aa
 
 #define MSG_ID_NODE_STATUS  1
 

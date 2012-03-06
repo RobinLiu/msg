@@ -9,7 +9,6 @@
 #include "common/include/common.h"
 #include "common/include/common_list.h"
 #include "message/mock_API/app_info.h"
-//#include "message/src/message_router.h"
 #include <string.h>
 
 uint32 g_msg_seq = 0;

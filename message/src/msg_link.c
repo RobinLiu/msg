@@ -680,8 +680,8 @@ msg_link_t* get_msg_link(node_id_t node_id)
 
 	//new connection
 	msg_link_t* new_link = (msg_link_t*) malloc(sizeof(msg_link_t));
-	memset(new_link, 0, sizeof(msg_link_t));
 	CHECK(NULL != new_link);
+	memset(new_link, 0, sizeof(msg_link_t));
 
 	//TODO: initialization for the new link.
 	init_link(node_id, new_link);
