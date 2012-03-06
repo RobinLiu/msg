@@ -17,7 +17,8 @@ void init_msg_center() {
   create_rcv_thread();
 }
 
-void msg_main() {
+void msg_main() 
+{
   init_msg_center();
   msg_queue_id_t in_msg_queue = get_msg_center_queue_id();
   LOG(INFO, "Begin receive msg in queue:%d", (int)in_msg_queue);

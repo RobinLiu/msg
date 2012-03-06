@@ -88,6 +88,7 @@ error_no_t send_msg_to_msg_router(message_t* msg) {
   node_id_t self_node = get_self_node_id();
   if(self_node == NODE_NOT_EXIST) {
     LOG(WARNING,"Get self node id failed");
+	free_msg_buff(&msg);
     return NODE_NOT_EXIST_EC;
   }
 

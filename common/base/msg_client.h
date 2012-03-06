@@ -2,6 +2,8 @@
 #define BASE_MSG_CLIENT_H
 #include "common/include/basic_types.h"
 
+#define MSG_ID(msg)    (msg->header->msg_id)
+
 /*****************************************************************************
  * Application first call this function to initialize the message system.
  * No return value is provided, if this call failed, the applicaiton exit
@@ -28,6 +30,7 @@ error_no_t send_msg(uint8  dst_grp_id,
                     void*  msg_content,
                     uint32 msg_len);
 
+
 /***************************************************************uo **************
  * Interface Used to receive message from other application.
  * Note, this interface will not return if there's no message from other
@@ -40,6 +43,7 @@ error_no_t send_msg(uint8  dst_grp_id,
  *              release the message buffer.
  * Return: No return value
  ****************************************************************************/
+
 void receive_msg(message_t** msg);
 
 /*****************************************************************************
@@ -58,6 +62,7 @@ void receive_msg(message_t** msg);
  *        @rsp_buf_size the length of the rsp_buf
  * Return: SUCCESS_EC on success, other value for failure.
  ****************************************************************************/
+
 error_no_t send_sync_msg(uint8  dst_grp_id,
                     uint16 dst_app_id,
                     uint32 msg_id,
@@ -67,6 +72,7 @@ error_no_t send_sync_msg(uint8  dst_grp_id,
                     uint32 time_out,
                     void*  rsp_buf,
                     uint32 rsp_buf_size);
+
 
 /*****************************************************************************
  * Application use this interface to send response for the received synchronized
@@ -79,5 +85,7 @@ error_no_t send_sync_msg(uint8  dst_grp_id,
 error_no_t send_sync_msg_rsp(message_t* syn_req_msg,
                     void* rsp_buf,
                     int rsp_buf_size);
+
+
 
 #endif
