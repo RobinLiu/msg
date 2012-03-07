@@ -414,7 +414,7 @@ int timer_heap_schedule(timer_heap_t* ht, timer_entry* entry, time_val* delay)
 	//notify the thread to update the polling timer;
 	if (was_empty || is_timer_less)
 	{
-		LOG(INFO, "Notify thread that a new timer is added ...");
+		//LOG(INFO, "Notify thread that a new timer is added ...");
 		CHECK(1 == write(ht->fd[1], "0", 1));
 	}
 	//unlock_timer_heap(ht);
@@ -533,8 +533,7 @@ void* timer_thread(void* data)
 	{ ht->fd[0], POLLIN, 0 };
 	int ret = 0;
 	int timeout = -1;
-	char flag[1] =
-	{ 0 };
+	char flag[1] = { 0 };
 
 	while (1)
 	{
@@ -551,9 +550,12 @@ void* timer_thread(void* data)
 		else
 		{
 			LOG(INFO, "%s", strerror(errno));
-		}LOG(INFO, "Start timer heap");
+		}
+		//LOG(INFO, "Start timer heap");
 		timer_heap_poll(ht, NULL);
 	}
+
+	return NULL;
 }
 
 void init_timer(msg_timer_t* timer, TIMEOUT_FUNC cb, void* data,

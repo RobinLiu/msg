@@ -1,15 +1,16 @@
 #include "message_router.h"
-#include "message/mock_API/app_info.h"
+#include "message/client/app_info.h"
+#include "message/client/app_config.h"
 #include "common/base/message.h"
 #include "common/base/msg_queue.h"
 #include "msg_link.h"
 
-msg_queue_id_t g_app_queue_id[MAX_GROUP_NUM_IN_NODE * MAX_APP_NUM_IN_GROUP] = { -1 };
+msg_queue_id_t g_app_queue_id[MAX_APP_PER_NODE] = { -1 };
 
 void init_app_queue_id()
 {
 	uint32 i = 0;
-	for (i = 0; i < MAX_GROUP_NUM_IN_NODE * MAX_APP_NUM_IN_GROUP; ++i)
+	for (i = 0; i < MAX_APP_PER_NODE; ++i)
 	{
 		g_app_queue_id[i] = -1;
 	}
@@ -21,9 +22,8 @@ msg_queue_id_t get_app_queue_id(uint8 group_id, uint8 app_id)
 	 * Here I made an assumption that group id on each node is continuous and begin
 	 * with the result of an integer multiplies with MAX_GROUP_NUM_IN_NODE.
 	 */
-	uint32 index = (group_id % MAX_GROUP_NUM_IN_NODE) * MAX_APP_NUM_IN_GROUP
-			+ app_id;
-	CHECK(index < MAX_GROUP_NUM_IN_NODE * MAX_APP_NUM_IN_GROUP);
+	uint32 index = app_id;
+	CHECK(index < MAX_APP_PER_NODE);
 	if (0 >= g_app_queue_id[index])
 	{
 		g_app_queue_id[index] = get_client_msg_queue_id(group_id, app_id);

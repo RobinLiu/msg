@@ -4,7 +4,8 @@
 #include "common/base/timer.h"
 #include "common/base/lock.h"
 #include "common/base/message.h"
-#include "message/mock_API/app_info.h"
+#include "message/client/app_info.h"
+#include "message/client/app_config.h"
 #include "message_router.h"
 #include <string.h>
 #include <sys/socket.h>
@@ -247,8 +248,8 @@ static void prepare_pkt(msg_frag_t* msg_frag, node_id_t peer)
 	//TODO: fill layer2 header here;
 	uint8 dest_mac[MAC_ADDR_LEN];
 	uint8 self_mac[MAC_ADDR_LEN];
-	get_self_mac(self_mac);
-	get_peer_mac(peer, dest_mac);
+	//get_self_mac(self_mac);
+	//get_peer_mac(peer, dest_mac);
 
 	msg_frag->data -= ETH_HEADER_LEN;
 	msg_frag->data_len += ETH_HEADER_LEN;
@@ -258,15 +259,16 @@ static void prepare_pkt(msg_frag_t* msg_frag, node_id_t peer)
 	 * |dest mac  | src mac|optinal vlan tag| ether type|
 	 * |6(octets) |6       |4               | 2         |
 	 * */
-	memcpy(data_ptr, dest_mac, MAC_ADDR_LEN);
-	memcpy(data_ptr + MAC_ADDR_LEN, self_mac, MAC_ADDR_LEN);
+	//memcpy(data_ptr, dest_mac, MAC_ADDR_LEN);
+	//memcpy(data_ptr + MAC_ADDR_LEN, self_mac, MAC_ADDR_LEN);
 	data_ptr += MAC_ADDR_LEN * 2;
 	*((uint16*) data_ptr) = ETH_P_MSG; //TODO: htons maybe needed.
 }
 
 static void conn_xmit_pkt(msg_frag_t* msg_frag, msg_link_t* link)
 {
-//  msg_link_t* link = get_msg_link(peer);
+    CHECK(NULL != msg_frag);
+    CHECK(NULL != link);
 //#if USING_LAYER_2
 	prepare_pkt(msg_frag, link->peer);
 //#endif
@@ -304,8 +306,8 @@ static void tx_msg_enqueue(message_t* msg, msg_link_t* link)
 	list_add_tail(&msg->list, &link->tx.msg_queue);
 	link->tx.msg_queue_size++;
 	unlock(&link->tx.tx_lock);
-	LOG(INFO, "queue size is %d for node %d",
-			link->tx.msg_queue_size, link->peer);
+	//LOG(INFO, "queue size is %d for node %d",
+			//link->tx.msg_queue_size, link->peer);
 	if (was_empty)
 	{
 		LOG(INFO, "New message to node %d arrived , notify thread...",
@@ -462,8 +464,8 @@ static error_no_t put_msg_into_sliding_window(message_t* msg, msg_link_t* link)
 
 		uint16 end = link->tx.win_end;
 		link->tx.win[end].frag = msg_frag;
-		LOG(INFO, "Send frag %d to node %d by wind[%d]",
-				lh->frag_seq, link->peer, end);
+		//LOG(INFO, "Send frag %d to node %d by wind[%d]",
+				//lh->frag_seq, link->peer, end);
 		//move sliding window to next;
 		link->tx.win_end = WIN_INDEX_ADD(end, 1);
 		//send to driver;
@@ -821,8 +823,7 @@ static void handle_data(uint8* pkt, msg_link_t* link)
 			//first frame of a message, read header and alloc message buf;
 //      LOG(INFO, "lh->frag_len %d sizeof(msg_header_t) %d.", lh->frag_len, sizeof(msg_header_t));
 			CHECK(lh->frag_len >= sizeof(msg_header_t));
-			msg_header_t* msg_header = (msg_header_t*) (pkt
-					+ sizeof(link_header_t));
+			msg_header_t* msg_header = (msg_header_t*) (pkt + sizeof(link_header_t));
 			uint32 msg_len = msg_header->msg_len;
 
 			message_t* new_msg = allocate_msg_buff(msg_len);
@@ -835,17 +836,16 @@ static void handle_data(uint8* pkt, msg_link_t* link)
 				link->rx.message = NULL;
 			}
 			//set the buf that has been copied as 0;
-//      check_buff_magic_num(new_msg);
+			check_buff_magic_num(new_msg);
 			new_msg->buf_len = 0;
 			link->rx.message = new_msg;
 		}
 		else if (link->rx.message == NULL
 				|| link->rx.message->header->msg_seq != lh->msg_seq)
 		{
-			LOG(
-					WARNING,
-					"First frame of a message is not received from node %d, drop the fragment",
-					link->peer);
+			LOG(WARNING,
+				"First frame of a message is not received from node %d, drop the fragment",
+				link->peer);
 			unlock(&link->rx.rx_lock);
 			//CHECK(0 == 1);
 			return;
@@ -866,13 +866,10 @@ static void handle_data(uint8* pkt, msg_link_t* link)
 			CHECK(link->rx.message->buf_len == total_len);
 			//send message to router
 			router_receive_msg(link->rx.message);
-			free_msg_buff(&link->rx.message);
+			link->rx.message = NULL;
 			link->rx.num_of_rcvd_msg++;
 			LOG(INFO, "received %d msg from node %d",
 					link->rx.num_of_rcvd_msg, link->peer);
-//      if (NULL != link->rx.message) {
-//        free_msg_buff(&link->rx.message);
-//      }
 		}
 	}
 	else if (FRAME_SEQ_GT(lh->frag_seq , link->rx.exp_frame_seq))
@@ -948,7 +945,7 @@ static void handle_ack(void* pkt, msg_link_t* link)
 	}
 	else
 	{
-		LOG(INFO, "Stop Retrans timer for node %d", link->peer);
+		//LOG(INFO, "Stop Retrans timer for node %d", link->peer);
 		stop_timer(&link->retrans_timer);
 	}
 	unlock(&link->tx.tx_lock);
@@ -996,8 +993,7 @@ void on_pkt_received(void* pkt, uint32 pkt_len)
 {
 	if (!is_pkt_valid(pkt, pkt_len))
 	{
-		LOG(WARNING,
-				"Package received, but failed to pass the check, drop it.");
+		LOG(WARNING, "Package received, but failed to pass the check, drop it.");
 		return;
 	}
 
@@ -1007,9 +1003,8 @@ void on_pkt_received(void* pkt, uint32 pkt_len)
 
 	if (NULL == link)
 	{
-		LOG(WARNING,
-				"Get link for message failed, node id is %d, drop the message.",
-				lh->src_node);
+		LOG(WARNING, "Get link for message failed, node id is %d, drop the message.",
+			lh->src_node);
 		return;
 	}
 

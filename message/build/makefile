@@ -8,7 +8,7 @@ PROGRAM_NAME = message
 #GTEST_DIR = ../../common/gtest-1.6.0
 SRC_DIRS = ../src
 #TEST_SRC_DIRS = ../tst
-#SRC_INC_DIR = $(SRC_DIRS) -I ../../common/include/ -I ../../ -I ../mock_API/
+#SRC_INC_DIR = $(SRC_DIRS) -I ../../common/include/ -I ../../ -I ../client/
 SRC_INC_DIR = $(SRC_DIRS) -I ../../
 
 MAIN_FILE = $(SRC_DIRS)/msgmain.c
@@ -31,7 +31,7 @@ TARGET_LIB = lib$(PROGRAM_NAME).a
 #    -I $(GTEST_DIR)/include \
 #    -I $(SRC_INC_DIR)
 INCLUDES = -I ./ -I ../..
-LDFLAGS +=  -lpthread -lstdc++ -L../../libs -llogging -lbase -lmock -lrt
+LDFLAGS +=  -lpthread -lstdc++ -L../../libs -llogging -lbase -lclient -lrt
 
 #Helper Functions
 get_src_from_dir  = $(wildcard $1/*.cpp)  $(wildcard $1/*.cc) $(wildcard $1/*.c$)

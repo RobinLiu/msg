@@ -51,7 +51,7 @@ void wait_to_be_notified(thread_cond_t* cond, lock_t* mutex)
 
 void notify_thread(thread_cond_t* cond)
 {
-	LOG(INFO, "Notify thread...");
+	//LOG(INFO, "Notify thread...");
 	pthread_cond_signal(cond);
 }
 

@@ -1,9 +1,9 @@
 #include "msg_queue.h"
 #include "thread.h"
 #include "message.h"
-#include "msg_client.h"
+//#include "msg_client.h"
 #include "common/include/common.h"
-#include "message/mock_API/app_info.h"
+#include "message/client/app_info.h"
 
 #include <string.h>
 #include <errno.h>
@@ -11,8 +11,8 @@
 
 #define FILE_MODE               0664
 #define QUEUE_NAME_LEN          128
-#define CLIENT_MSG_QUEUE_SIZE   64
-#define SERVER_MSG_QUEUE_SIZE   512
+#define CLIENT_MSG_QUEUE_SIZE   10
+#define SERVER_MSG_QUEUE_SIZE   10
 #define MSG_SEND_TIME           500000000  //0.5s In nanoseconds
 
 msg_queue_id_t  g_msg_queue_id = -1;

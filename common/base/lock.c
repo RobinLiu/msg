@@ -2,7 +2,7 @@
 #include "lock.h"
 #include "common/include/logging.h"
 
-#ifdef USING_POSIX_THREAD
+#if USING_POSIX_THREAD
 
 int32 init_lock(lock_t* lock)
 {
@@ -29,15 +29,12 @@ void _lock(lock_t* locker, char* file, int line)
 {
 	(void) file;
 	(void) line;
-//  CHECK(1 != locker->locked)
-//  LOG(INFO, "Begin lock %p in thread %x at[%s:%d]", &locker->locker, (uint32)pthread_self(), file, line);
 	pthread_mutex_lock(&locker->locker);
 }
 void _unlock(lock_t* locker, char* file, int line)
 {
 	(void) file;
 	(void) line;
-//  LOG(INFO, "Begin unlock %p in thread %x at[%s:%d]", &locker->locker, (uint32)pthread_self(), file, line);
 	int32 ret = pthread_mutex_unlock(&locker->locker);
 	CHECK(0 == ret);
 }
@@ -45,18 +42,14 @@ void _unlock(lock_t* locker, char* file, int line)
 void lock(lock_t* locker)
 {
 	CHECK(NULL != locker);
-//  LOG(INFO,"begin lock");
 	int32 ret = pthread_mutex_lock(locker);
-//  LOG(INFO,"lock ok");
 	CHECK(0 == ret);
 }
 
 void unlock(lock_t* locker)
 {
 	CHECK(NULL != locker);
-//  LOG(INFO,"begin unlock");
 	int32 ret = pthread_mutex_unlock(locker);
-//  LOG(INFO,"unlock ok");
 	CHECK(0 == ret);
 }
 #endif

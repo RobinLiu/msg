@@ -4,7 +4,7 @@
 #include <string.h>
 #include <pthread.h>
 
-int8 g_min_log_level = 0;
+int8 g_min_log_level = LOG_WARNING;
 bool g_filter_log_flag = FALSE;
 char g_log_filter[FILTER_BUF_SIZE] ={ 0 };
 

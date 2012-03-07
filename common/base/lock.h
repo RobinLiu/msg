@@ -6,7 +6,7 @@ extern "C" {
 #include "common/include/build.h"
 #include "common/include/basic_types.h"
 
-#ifdef USING_POSIX_THREAD
+#if USING_POSIX_THREAD
 #include <pthread.h>
 
 #if DEBUG_LOCK

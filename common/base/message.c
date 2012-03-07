@@ -8,7 +8,7 @@
 #include "message.h"
 #include "common/include/common.h"
 #include "common/include/common_list.h"
-#include "message/mock_API/app_info.h"
+#include "message/client/app_info.h"
 #include <string.h>
 
 uint32 g_msg_seq = 0;
@@ -25,7 +25,6 @@ void check_buff_magic_num(message_t* msg)
 
 message_t* allocate_msg_buff(uint32 msg_len)
 {
-
 	message_t* msg = (message_t*) malloc(sizeof(message_t));
 	CHECK(NULL != msg);
 	memset(msg, 0, sizeof(message_t));
@@ -86,7 +85,11 @@ void fill_msg_header(uint8 des_group_id, uint16 des_app_id, uint8 range,
 	msg_header_t* header = msg->header;
 	header->rcver.group_id = des_group_id;
 	header->rcver.app_id = des_app_id;
+#if SUPPORT_2N_REDUNDANCY
 	header->rcver.role = range;
+#else
+	(void)range;
+#endif
 	header->msg_id = msg_id;
 	header->msg_type = msg_type;
 	header->priority = msg_priority;
@@ -96,7 +99,9 @@ void fill_msg_header(uint8 des_group_id, uint16 des_app_id, uint8 range,
 	//TODO:fill information about self
 	header->snder.group_id = get_self_group_id();
 	header->snder.app_id = get_self_app_id();
+#if SUPPORT_2N_REDUNDANCY
 	header->snder.role = get_self_role();
+#endif
 }
 
 void fill_msg_body(void* msg_content, uint32 msg_len, message_t* msg)
@@ -112,11 +117,18 @@ void print_msg_header(message_t* msg)
 {
 	msg_header_t* mh = msg->header;
 	CHECK(NULL != mh);
+#if SUPPORT_2N_REDUNDANCY
 	printf("Sender: group %d, app %d, range %d\n", mh->snder.group_id,
 			mh->snder.app_id, mh->snder.role);
 	printf("Receiver: group %d, app %d, range %d\n", mh->rcver.group_id,
 			mh->rcver.app_id, mh->rcver.role);
-	printf("Msg_type: %d\n", mh->msg_type);
+#else
+    printf("Sender: group %d, app %d, \n", mh->snder.group_id,
+            mh->snder.app_id);
+    printf("Receiver: group %d, app %d\n", mh->rcver.group_id,
+            mh->rcver.app_id);
+#endif
+    printf("Msg_type: %d\n", mh->msg_type);
 }
 
 void print_msg(message_t* msg)

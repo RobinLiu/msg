@@ -2,7 +2,7 @@
 #include "msg_link.h"
 #include "common/include/common.h"
 #include "common/base/thread.h"
-#include "message/mock_API/app_info.h"
+#include "message/client/app_info.h"
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -64,10 +64,10 @@ void dbg_print_msg(uint8* msg)
 	{
 		msg_header_t* mh = (msg_header_t*) buf;
 
-		printf("\n\tSender: group %d, app %d, range %d", mh->rcver.group_id,
-				mh->rcver.app_id, mh->rcver.role);
-		printf("\n\tReceiver: group %d, app %d, range %d", mh->snder.group_id,
-				mh->snder.app_id, mh->snder.role);
+		printf("\n\tSender: group %d, app %d", mh->rcver.group_id,
+				mh->rcver.app_id);
+		printf("\n\tReceiver: group %d, app %d", mh->snder.group_id,
+				mh->snder.app_id);
 		buf += sizeof(msg_header_t);
 	}
 
@@ -98,24 +98,20 @@ void dbg_print_msg(uint8* msg)
 
 void driver_xmit_pkt(int connfd, void* conndata, void* buff, uint32 buff_len)
 {
-//  LOG(INFO, "package len is %d, send package...", buff_len);
-//  dbg_print_msg((uint8*)buff);
-//  LOG(INFO, "Write content to dirver");
+
 	int nsend = sendto(connfd, buff, buff_len, 0, (struct sockaddr *) conndata,
 			sizeof(struct sockaddr_in));
 	if (nsend < 0)
 	{
-		LOG(
-				INFO,
-				"send msg to UDP[%s:%u] failed",
-				inet_ntoa(((struct sockaddr_in*)conndata)->sin_addr), ntohs(((struct sockaddr_in*)conndata)->sin_port));
+		LOG(INFO,
+			"send msg to UDP[%s:%u] failed",
+			inet_ntoa(((struct sockaddr_in*)conndata)->sin_addr), ntohs(((struct sockaddr_in*)conndata)->sin_port));
 		close(connfd);
 		connfd = -1;
 	}
 	/*LOG(INFO, "send msg to UDP[%s:%u] done",inet_ntoa(((struct sockaddr_in*)conndata)->sin_addr),
 	 ntohs(((struct sockaddr_in*)conndata)->sin_port));*/
-//  size_t n = write(out_fd, buff, buff_len);
-//  CHECK(n == buff_len);
+
 }
 
 void driver_rcv_pkt(void* msg_frag, uint32 msg_len)
@@ -159,31 +155,12 @@ void* tst_receiver(void* arg)
 		uint8* rcvd_msg = (uint8*) malloc(msg_len);
 		CHECK(NULL != rcvd_msg);
 		memcpy(rcvd_msg, msg_buf, msg_len);
-//    dbg_print_msg((uint8*)rcvd_msg);
+        //dbg_print_msg((uint8*)rcvd_msg);
 		driver_rcv_pkt(rcvd_msg, (uint32) msg_len);
 		free(rcvd_msg);
 		rcvd_msg = NULL;
 	}
 
-	/*  struct pollfd pfd;
-	 pfd.fd = in_fd;
-	 pfd.events=POLLIN;
-	 while(1) {
-	 if(poll(&pfd, 1, -1) > 0) {
-	 if(pfd.revents & POLLIN) {
-	 LOG(INFO, "Package received");
-	 pfd.revents = 0;
-	 } else {
-	 continue;
-	 }
-	 }
-
-	 memset(msg, 0, sizeof(msg));
-	 uint32 msg_len = read(in_fd, msg, sizeof(msg));
-	 dbg_print_msg(msg);
-	 driver_rcv_pkt(msg, msg_len);
-	 }
-	 */
 	return (void*) (0);
 }
 

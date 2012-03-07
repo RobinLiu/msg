@@ -1,9 +1,8 @@
-CFLAGS += -fmessage-length=0 \
-          -I./ -I../../common/include/  -I../../common -I ../../
+CFLAGS += -I./ -I../../common/include/  -I../../common -I ../../
 CXXFLAGS = 
 OBJS := $(patsubst %.c,%.o,$(wildcard *.c))
 OBJS += $(patsubst %.cpp,%.o,$(wildcard *.cpp))
-LIBS = -lpthread -lstdc++ -lrt -L../../libs -llogging -lbase -lmock
+LIBS = -lpthread  -L../../libs -llogging  -lbase -lclient -lbase -lrt
 
 TARGET = testapp
 

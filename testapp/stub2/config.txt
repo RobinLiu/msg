@@ -1,5 +1,0 @@
-NodeID=0
-GroupID=3
-AppID=1
-MSGGroupID=1
-MSGAppID=1
